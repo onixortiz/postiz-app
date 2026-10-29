@@ -75,6 +75,16 @@ export class OrganizationRepository {
     return this._organization.model.organization.count();
   }
 
+  // FORK: approvals - the first organization of the install, the only one
+  // whose invitations sign up while DISABLE_REGISTRATION is on
+  getFirstOrgId() {
+    return this._organization.model.organization.findFirst({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+  }
+
   getSuperAdminUser(orgId: string) {
     return this._userOrg.model.userOrganization.findFirst({
       where: {
