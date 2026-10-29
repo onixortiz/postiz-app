@@ -17,6 +17,9 @@ import { useToaster } from '@gitroom/react/toaster/toaster';
 import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
 import copy from 'copy-to-clipboard';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
+// FORK: approvals
+import { useVariables } from '@gitroom/react/helpers/variable.context';
+import { WorkflowRolesComponent } from '@gitroom/frontend/components/settings/workflow.roles.component';
 
 const roles = [
   {
@@ -115,6 +118,8 @@ export const AddMember = () => {
 };
 export const TeamsComponent = () => {
   const fetch = useFetch();
+  // FORK: approvals
+  const { approvalsEnabled } = useVariables();
   const user = useUser();
   const modals = useModals();
   const t = useT();
@@ -232,6 +237,8 @@ export const TeamsComponent = () => {
           </Button>
         </div>
       </div>
+      {/* FORK: approvals */}
+      {approvalsEnabled && <WorkflowRolesComponent />}
     </div>
   );
 };

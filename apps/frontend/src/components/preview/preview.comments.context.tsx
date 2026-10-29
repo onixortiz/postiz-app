@@ -10,6 +10,8 @@ import {
 } from 'react';
 import useSWR from 'swr';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
+// FORK: approvals
+import { useVariables } from '@gitroom/react/helpers/variable.context';
 
 export interface PreviewComment {
   id: string;
@@ -41,13 +43,15 @@ export interface ActiveThread {
 
 const useComments = (previewId: string) => {
   const fetch = useFetch();
+  // FORK: approvals - the public endpoint answers 404, the preview needs a session
+  const { approvalsEnabled } = useVariables();
+  const path = approvalsEnabled
+    ? `/approvals/preview/${previewId}/comments`
+    : `/public/posts/${previewId}/comments`;
   const load = useCallback(async () => {
-    return (await fetch(`/public/posts/${previewId}/comments`)).json();
-  }, [previewId]);
-  return useSWR<{ comments: PreviewComment[] }>(
-    `/public/posts/${previewId}/comments`,
-    load
-  );
+    return (await fetch(path)).json();
+  }, [path]);
+  return useSWR<{ comments: PreviewComment[] }>(path, load);
 };
 
 interface PreviewCommentsContextInterface {

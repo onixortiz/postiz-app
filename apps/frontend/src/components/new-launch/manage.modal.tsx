@@ -70,6 +70,13 @@ import {
   MediaSettingsSection,
   useMediaSettingsValues,
 } from '@gitroom/frontend/components/new-launch/media.settings.section';
+// FORK: approvals
+import { useVariables } from '@gitroom/react/helpers/variable.context';
+import { ApprovalPanel } from '@gitroom/frontend/components/approvals/approval.panel.component';
+import {
+  useApprovalActions,
+  useApprovalStages,
+} from '@gitroom/frontend/components/approvals/use.approvals';
 
 export const ManageModal: FC<AddEditModalProps> = (props) => {
   const t = useT();
@@ -91,6 +98,21 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
   const { data: shortlinkPreferenceData } = useShortlinkPreference();
 
   const { addEditSets, mutate, customClose, dummy } = props;
+
+  // FORK: approvals - the stage of the batch is known before saving
+  const { approvalsEnabled } = useVariables();
+  const approvalActions = useApprovalActions();
+  const briefId = useLaunchStore((state) => state.briefId);
+  const rootPostId: string | undefined = existingData?.posts?.[0]?.id;
+  const { data: approvalStages, isValidating: approvalStagesValidating } =
+    useApprovalStages(approvalsEnabled && rootPostId ? [rootPostId] : []);
+  const approvedBatch =
+    !!rootPostId && approvalStages?.[rootPostId]?.stage === 'APPROVED';
+  // a Save while the stage is unknown would pause an approved batch
+  const approvalStageLoading =
+    !!approvalsEnabled &&
+    !!rootPostId &&
+    (!approvalStages || approvalStagesValidating);
 
   const {
     selectedIntegrations,
@@ -319,7 +341,14 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
   }, [existingData, mutate, modal, current, integrations]);
 
   const schedule = useCallback(
-    (type: 'draft' | 'now' | 'schedule' | 'update') => async () => {
+    (requestedType: 'draft' | 'now' | 'schedule' | 'update') => async () => {
+      // FORK: approvals - "Save" schedules only an approved batch, and the
+      // server decides each channel (typeForSave): no questions, no republish
+      const type = !approvalsEnabled
+        ? requestedType
+        : requestedType !== 'draft' && approvedBatch
+        ? 'schedule'
+        : 'draft';
       let republish = false;
       // the channels saved as another type, the rest are saved as `type`
       const saveAs: Record<string, 'draft' | 'schedule' | 'update'> = {};
@@ -335,7 +364,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
 
       // another channel whose date already passed would go out right away, it
       // only gets its details saved
-      if (type === 'schedule') {
+      if (!approvalsEnabled && type === 'schedule') {
         for (const p of others) {
           if (
             !published.includes(p) &&
@@ -347,7 +376,11 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
       }
 
       // a draft of a post with other channels leaves the published ones as they are
-      if (type === 'draft' && existingData.siblings?.length) {
+      if (
+        !approvalsEnabled &&
+        type === 'draft' &&
+        existingData.siblings?.length
+      ) {
         for (const p of published) {
           if (p.posts[0].state === 'PUBLISHED') {
             saveAs[p.integration] = 'update';
@@ -367,6 +400,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
       // (scheduling their drafts, moving them to drafts) can do it only for
       // the channel in view, the others keep their state
       if (
+        !approvalsEnabled &&
         type !== 'update' &&
         others.some(
           (p) =>
@@ -460,7 +494,11 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
       // the published channels that would go out again
       const republishing = published.filter((p) => !saveAs[p.integration]);
 
-      if ((type === 'now' || type === 'schedule') && republishing.length) {
+      if (
+        !approvalsEnabled &&
+        (type === 'now' || type === 'schedule') &&
+        republishing.length
+      ) {
         const channels = republishing
           .map(
             (p) =>
@@ -752,6 +790,8 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
           // every type of save is its own request, the drafts last, since a
           // draft save skips the checks the others still run
           let saved = false;
+          // FORK: approvals
+          const savedPosts: { postId: string }[] = [];
           for (const requestType of ['update', 'schedule', 'now', 'draft']) {
             const request = {
               type: requestType,
@@ -786,6 +826,27 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
               return;
             }
             saved = true;
+            // FORK: approvals
+            if (approvalsEnabled) {
+              savedPosts.push(...(await response.json().catch(() => [])));
+            }
+          }
+
+          // FORK: approvals - a post created from a topic gets linked to it
+          if (approvalsEnabled && briefId && savedPosts.length) {
+            const linked = await approvalActions.linkSavedToBrief(
+              savedPosts.map((p) => p.postId),
+              briefId
+            );
+            if (!linked) {
+              toaster.show(
+                t(
+                  'approvals_link_brief_failed',
+                  'The post was saved, but it could not be linked to the topic'
+                ),
+                'warning'
+              );
+            }
           }
         }
 
@@ -820,11 +881,17 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
       addEditSets,
       dummy,
       shortlinkPreferenceData,
+      // FORK: approvals
+      approvalsEnabled,
+      approvedBatch,
+      briefId,
     ]
   );
 
   const scheduleLabel = dummy
     ? t('create_output', 'Create output')
+    : approvalsEnabled
+    ? t('approvals_save', 'Save')
     : !existingData?.integration
     ? t('add_to_calendar', 'Add to calendar')
     : existingData?.posts?.[0]?.state === 'DRAFT'
@@ -845,7 +912,8 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
           variant: 'primary',
           onClick: schedule('schedule'),
         },
-        ...(!dummy
+        // FORK: approvals - no Post Now, and Pause only for an approved batch
+        ...(!dummy && !approvalsEnabled
           ? [
               {
                 label: t('post_now', 'Post Now'),
@@ -854,11 +922,17 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
               },
             ]
           : []),
-        {
-          label: t('save_as_draft', 'Save as Draft'),
-          variant: 'tertiary',
-          onClick: schedule('draft'),
-        },
+        ...(!approvalsEnabled || approvedBatch
+          ? [
+              {
+                label: approvalsEnabled
+                  ? t('approvals_pause', 'Pause')
+                  : t('save_as_draft', 'Save as Draft'),
+                variant: 'tertiary' as const,
+                onClick: schedule('draft'),
+              },
+            ]
+          : []),
       ];
 
   // the settings sheet links to the channel settings only when there are any
@@ -908,7 +982,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
         <MobileTopBar
           onBack={askClose}
           actions={mobileActions}
-          disabled={selectedIntegrations.length === 0 || loading || locked}
+          disabled={selectedIntegrations.length === 0 || loading || locked || approvalStageLoading}
           loading={loading}
         >
           <DatePicker
@@ -1105,6 +1179,12 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                 scrollClasses="!pe-[20px]"
                 className="absolute mobile:static top-0 p-[20px] pe-[8px] mobile:p-[16px] left-0 w-full h-full mobile:h-auto overflow-x-hidden overflow-y-scroll mobile:overflow-y-visible scrollbar scrollbar-thumb-newColColor scrollbar-track-newBgColorInner"
               >
+                {/* FORK: approvals */}
+                {approvalsEnabled && !dummy && !addEditSets && (
+                  <div className="mb-[20px]">
+                    <ApprovalPanel rootPostId={rootPostId} />
+                  </div>
+                )}
                 <ShowAllProviders ref={ref} />
               </Scrollable>
             </div>
@@ -1141,10 +1221,11 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
               </button>
             )}
             <DatePicker onChange={setPickerDate} date={pickerDate} />
-            {!addEditSets && (
+            {/* FORK: approvals - Pause, only for an approved batch */}
+            {!addEditSets && (!approvalsEnabled || approvedBatch) && (
               <button
                 disabled={
-                  selectedIntegrations.length === 0 || loading || locked
+                  selectedIntegrations.length === 0 || loading || locked || approvalStageLoading
                 }
                 onClick={schedule('draft')}
                 className="relative cursor-pointer disabled:cursor-not-allowed px-[20px] h-[44px] bg-btnSimple justify-center items-center flex rounded-[8px] text-[15px] font-[600]"
@@ -1155,7 +1236,9 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                   </div>
                 )}
                 <div className={clsx(loading && 'invisible')}>
-                  {t('save_as_draft', 'Save as Draft')}
+                  {approvalsEnabled
+                    ? t('approvals_pause', 'Pause')
+                    : t('save_as_draft', 'Save as Draft')}
                 </div>
               </button>
             )}
@@ -1163,7 +1246,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
               <button
                 className="text-white text-[15px] font-[600] min-w-[180px] btnSub disabled:cursor-not-allowed disabled:opacity-80 outline-none gap-[8px] flex justify-center items-center h-[44px] rounded-[8px] bg-[#612BD3] ps-[20px] pe-[16px]"
                 disabled={
-                  selectedIntegrations.length === 0 || loading || locked
+                  selectedIntegrations.length === 0 || loading || locked || approvalStageLoading
                 }
                 onClick={schedule('draft')}
               >
@@ -1174,7 +1257,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
               <div ref={postNowRef} className="group cursor-pointer relative">
                 <button
                   disabled={
-                    selectedIntegrations.length === 0 || loading || locked
+                    selectedIntegrations.length === 0 || loading || locked || approvalStageLoading
                   }
                   onClick={schedule('schedule')}
                   className="text-white relative min-w-[180px] btnSub disabled:cursor-not-allowed disabled:opacity-80 outline-none gap-[8px] flex justify-center items-center h-[44px] rounded-[8px] bg-[#612BD3] ps-[20px] pe-[16px]"
@@ -1194,7 +1277,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                       ? t('check_circles_above', 'Check the circles above')
                       : scheduleLabel}
                   </div>
-                  {!dummy && (
+                  {!dummy && !approvalsEnabled && (
                     <div
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1212,11 +1295,12 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                   )}
                 </button>
 
-                {!dummy && (
+                {/* FORK: approvals - no Post Now */}
+                {!dummy && !approvalsEnabled && (
                   <button
                     onClick={schedule('now')}
                     disabled={
-                      selectedIntegrations.length === 0 || loading || locked
+                      selectedIntegrations.length === 0 || loading || locked || approvalStageLoading
                     }
                     className={clsx(
                       'rounded-[8px] z-[300] disabled:cursor-not-allowed disabled:opacity-80 absolute bottom-[100%] -left-[12px] p-[12px] w-[206px] bg-newBgColorInner',

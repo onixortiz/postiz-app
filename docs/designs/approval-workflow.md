@@ -2298,6 +2298,33 @@ ese archivo se crea.
     (`calendar.context.tsx:335-341`), así que `briefId` se lee una sola vez al
     montar.
 
+*   **Implementado (fase 5):**
+    *   `open.from.brief.tsx` atiende dos parámetros: `?briefId=` (post nuevo
+        desde un tema) y `?approvalGroup=` (post existente, desde la bandeja).
+        El segundo usa `usePostActions().editPost` de `calendar.tsx`, que se
+        exporta (`// FORK`). Los dos parámetros se quitan de la URL al abrir el
+        editor, para que recargar la página no lo abra otra vez.
+    *   El filtro "Etapa" es un componente propio,
+        `approvals/approval.stage.filter.tsx`, que `filters.tsx` monta junto al
+        selector de canales. `setFiltersWrapper` conserva la etapa actual
+        cuando una llamada no la manda, así que las demás llamadas de
+        `filters.tsx` no cambian. Con el fork apagado, el parámetro de la URL
+        se ignora.
+    *   Los colores de las insignias son tokens nuevos en `colors.scss`
+        (`--approval-*`, para el tema oscuro y el claro) y en
+        `tailwind.config.cjs`.
+    *   En el editor, "Guardar" y "Pausar" quedan deshabilitados mientras se
+        carga la etapa del lote, para no pausar por error un lote aprobado. El
+        panel avisa que las acciones usan la última versión guardada.
+    *   Al editar un tema, un campo vaciado se manda como `null` y se borra
+        (`UpdateBriefDto` acepta `null`).
+    *   Los cargadores de SWR tratan una respuesta de error como error, no como
+        datos, y `useApprovalStages` parte los ids en grupos de 500, el máximo
+        de `StagesQueryDto`.
+    *   **Sin verificar en el navegador:** la fase compila (`pnpm build`) y pasa
+        el lint, pero no hay pruebas de frontend. La prueba de punta a punta
+        del Verification Plan la cubre.
+
 ##### 33. `apps/frontend/src/app/(app)/(site)/briefs/page.tsx` (Create)
 
 *   **Cambios propuestos**: la ruta `/briefs`, que monta el componente del

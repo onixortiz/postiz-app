@@ -54,13 +54,13 @@ export class BriefsService {
     if (!(brief.quickBrief && brief.createdById === actor.id)) {
       await this.assertWriter(orgId, actor);
     }
-    await this.assertCreator(orgId, body.assignedCreatorId);
+    await this.assertCreator(orgId, body.assignedCreatorId || undefined);
 
     return this._approvalsRepository.updateBrief(orgId, id, {
       ...(body.topic !== undefined ? { topic: body.topic } : {}),
       ...(body.baseCopy !== undefined ? { baseCopy: body.baseCopy } : {}),
       ...(body.targetDate !== undefined
-        ? { targetDate: new Date(body.targetDate) }
+        ? { targetDate: body.targetDate ? new Date(body.targetDate) : null }
         : {}),
       ...(body.assignedCreatorId !== undefined
         ? { assignedCreatorId: body.assignedCreatorId }

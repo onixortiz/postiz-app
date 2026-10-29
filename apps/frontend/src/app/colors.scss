@@ -42,6 +42,13 @@
     --youtube-button: #F1F1F1;
     --youtube-action-color: #272727;
     --youtube-svg-border: #A0A0A0;
+    /* FORK: approvals - stage badges */
+    --approval-review: #2563eb;
+    --approval-final: #f59e0b;
+    --approval-changes: #ea580c;
+    --approval-published: #16a34a;
+    --approval-verified: #047857;
+    --approval-problem: #dc2626;
   }
   .light {
     --new-back-drop: #2d1b57;
@@ -93,6 +100,13 @@
     --youtube-button: #000;
     --youtube-action-color: #F1F1F1;
     --youtube-svg-border: #1A1A1A;
+    /* FORK: approvals - stage badges */
+    --approval-review: #2563eb;
+    --approval-final: #d97706;
+    --approval-changes: #ea580c;
+    --approval-published: #16a34a;
+    --approval-verified: #047857;
+    --approval-problem: #dc2626;
   }
 }
 

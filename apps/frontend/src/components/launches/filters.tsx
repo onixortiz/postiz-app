@@ -11,6 +11,8 @@ import i18next from 'i18next';
 import { newDayjs } from '@gitroom/frontend/components/layout/set.timezone';
 import { BottomSheet } from '@gitroom/frontend/components/ui/bottom.sheet.component';
 import { FilterIcon } from '@gitroom/frontend/components/ui/icons';
+// FORK: approvals
+import { ApprovalStageFilter } from '@gitroom/frontend/components/approvals/approval.stage.filter';
 
 // Helper function to get start and end dates based on display type
 function getDateRange(
@@ -447,6 +449,8 @@ export const Filters = () => {
           integrations={calendar.integrations}
         />
         <SelectChannels />
+        {/* FORK: approvals */}
+        <ApprovalStageFilter />
       </div>
       {calendar.integrations.length > 1 && (
         <div
@@ -574,6 +578,8 @@ export const Filters = () => {
             integrations={calendar.integrations}
           />
           <SelectChannels list={true} />
+          {/* FORK: approvals */}
+          <ApprovalStageFilter list={true} />
         </BottomSheet>
       )}
     </div>

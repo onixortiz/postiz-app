@@ -77,6 +77,26 @@ describe('BriefsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('clears a field sent as null', async () => {
+    const brief = await ctx.briefs.create(orgId, writer, {
+      topic: 'Launch',
+      baseCopy: 'Base',
+      targetDate: futureDate(),
+      assignedCreatorId: creator.id,
+    });
+    const cleared = await ctx.briefs.update(orgId, brief.id, writer, {
+      baseCopy: null,
+      targetDate: null,
+      assignedCreatorId: null,
+    });
+    expect(cleared).toMatchObject({
+      topic: 'Launch',
+      baseCopy: null,
+      targetDate: null,
+      assignedCreatorId: null,
+    });
+  });
+
   it('lets whoever wrote a quick brief edit it', async () => {
     const quick = await ctx.prisma.contentBrief.create({
       data: {

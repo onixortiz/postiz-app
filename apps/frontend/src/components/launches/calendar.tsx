@@ -52,6 +52,8 @@ import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import i18next from 'i18next';
 import { AddEditModal } from '@gitroom/frontend/components/new-launch/add.edit.modal';
 import { CreationMethodBadge } from '@gitroom/frontend/components/launches/creation.method.badge';
+// FORK: approvals
+import { ApprovalStageBadge } from '@gitroom/frontend/components/approvals/approval.stage.badge';
 import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
 import copy from 'copy-to-clipboard';
@@ -167,7 +169,8 @@ const DayNowLine: FC<{ now: dayjs.Dayjs; className?: string }> = ({
 );
 
 // Shared hook for post actions (edit, delete, statistics)
-const usePostActions = (onMutate?: () => void) => {
+// FORK: approvals - exported, the inbox link opens a post with it
+export const usePostActions = (onMutate?: () => void) => {
   const t = useT();
   const fetch = useFetch();
   const modal = useModals();
@@ -789,6 +792,9 @@ export const CalendarColumn: FC<{
   } = useCalendar();
   const modal = useModals();
   const fetch = useFetch();
+  // FORK: approvals
+  const { approvalsEnabled } = useVariables();
+  const toaster = useToaster();
 
   // Use shared post actions hook
   const { editPost, deletePost, copyDebugJson, openStatistics, openMissingRelease, openPost } = usePostActions();
@@ -837,8 +843,15 @@ export const CalendarColumn: FC<{
       const post = posts.find((p) => p.id === item.id);
       let action: 'schedule' | 'update' = 'schedule';
 
+      // FORK: approvals - no question: a published post only moves its date,
+      // the others are rescheduled and the server decides
+      if (approvalsEnabled && post?.state === 'PUBLISHED') {
+        action = 'update';
+      }
+
       // Check if post is already published or queued in the past
       if (
+        !approvalsEnabled &&
         post &&
         (post.state === 'PUBLISHED' ||
           (post.state === 'QUEUE' && dayjs().isAfter(dayjs.utc(post.publishDate))))
@@ -907,16 +920,31 @@ export const CalendarColumn: FC<{
       if (!item.interval) {
         changeDate(item.id, getDate);
       }
-      const { status } = await fetch(`/posts/${item.id}/date`, {
+      const response = await fetch(`/posts/${item.id}/date`, {
         method: 'PUT',
         body: JSON.stringify({
           date: getDate.utc().format('YYYY-MM-DDTHH:mm:ss'),
           action,
           // published posts always confirm via the modal before reaching here;
           // for QUEUE posts the flag is a no-op on the server
-          ...(action === 'schedule' ? { republish: true } : {}),
+          ...(action === 'schedule' && !approvalsEnabled
+            ? { republish: true }
+            : {}),
         }),
       });
+      const { status } = response;
+      // FORK: approvals - the post moved on screen before the answer, so a
+      // refused move (a past date, for example) puts it back
+      if (approvalsEnabled && !response.ok) {
+        const { message } = await response.json().catch(() => ({} as any));
+        toaster.show(
+          (Array.isArray(message) ? message[0] : message) ||
+            t('approvals_action_failed', 'The action could not be completed'),
+          'warning'
+        );
+        reloadCalendarView();
+        return;
+      }
       if (status !== 500) {
         if (item.interval || action === 'schedule') {
           reloadCalendarView();
@@ -928,7 +956,7 @@ export const CalendarColumn: FC<{
     collect: (monitor) => ({
       canDrop: isBeforeNow ? false : !!monitor.canDrop() && !!monitor.isOver(),
     }),
-  }), [posts, isBeforeNow]);
+  }), [posts, isBeforeNow, approvalsEnabled]);
 
   const addModal = useCallback(async () => {
     const set: any = !sets.length
@@ -1232,6 +1260,9 @@ const CalendarItem: FC<{
   } = props;
   const { disableXAnalytics } = useVariables();
   const user = useUser();
+  // FORK: approvals - the stage comes from one request for the whole view
+  const { stagesByPostId } = useCalendar();
+  const approvalStage = stagesByPostId[post.id];
   const showCreationMethodBadge =
     user?.impersonate &&
     post.creationMethod &&
@@ -1288,6 +1319,21 @@ const CalendarItem: FC<{
           )}
         >
           ✓
+        </div>
+      )}
+      {/* FORK: approvals */}
+      {!!approvalStage && (
+        <div
+          className={clsx(
+            'absolute -bottom-[6px] start-[6px] z-10 max-w-[90%]',
+            display === 'month' && 'mobile:hidden'
+          )}
+        >
+          <ApprovalStageBadge
+            stage={approvalStage.stage}
+            expired={approvalStage.expired}
+            size="sm"
+          />
         </div>
       )}
       {showCreationMethodBadge && (

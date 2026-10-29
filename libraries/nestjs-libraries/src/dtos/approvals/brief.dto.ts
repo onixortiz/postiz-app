@@ -27,6 +27,7 @@ export class CreateBriefDto {
   assignedCreatorId?: string;
 }
 
+// null clears a field
 export class UpdateBriefDto {
   @IsOptional()
   @IsString()
@@ -35,15 +36,15 @@ export class UpdateBriefDto {
 
   @IsOptional()
   @IsString()
-  baseCopy?: string;
+  baseCopy?: string | null;
 
   @IsOptional()
   @IsDateString()
-  targetDate?: string;
+  targetDate?: string | null;
 
   @IsOptional()
   @IsString()
-  assignedCreatorId?: string;
+  assignedCreatorId?: string | null;
 }
 
 export class ListBriefsQueryDto {

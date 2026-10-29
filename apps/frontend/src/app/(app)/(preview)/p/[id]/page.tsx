@@ -15,6 +15,9 @@ import { CopyClient } from '@gitroom/frontend/components/preview/copy.client';
 import { getT } from '@gitroom/react/translation/get.translation.service.backend';
 import { RenderPreviewDateClient } from '@gitroom/frontend/components/preview/render.preview.date.client';
 import { CreationMethodBadge } from '@gitroom/frontend/components/launches/creation.method.badge';
+// FORK: approvals
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 dayjs.extend(utc);
 export const metadata: Metadata = {
@@ -38,7 +41,20 @@ export default async function Auth(
     id
   } = params;
 
-  const post = await (await internalFetch(`/public/posts/${id}`)).json();
+  // FORK: approvals - the preview is only for members of the organization
+  let post: any[];
+  if (process.env.APPROVALS_ENABLED === 'true') {
+    if (!(await cookies()).get('auth')?.value) {
+      return redirect('/auth/login');
+    }
+    const response = await internalFetch(`/approvals/preview/${id}`);
+    if (response.status === 401 || response.status === 403) {
+      return redirect('/auth/login');
+    }
+    post = response.ok ? await response.json() : [];
+  } else {
+    post = await (await internalFetch(`/public/posts/${id}`)).json();
+  }
   const t = await getT();
   if (!post.length) {
     return (

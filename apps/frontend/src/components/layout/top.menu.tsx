@@ -17,7 +17,8 @@ interface MenuItemInterface {
 }
 
 export const useMenuItem = () => {
-  const { isGeneral } = useVariables();
+  // FORK: approvals
+  const { isGeneral, approvalsEnabled } = useVariables();
   const t = useT();
 
   const firstMenu = [
@@ -41,6 +42,52 @@ export const useMenuItem = () => {
         </svg>
       ),
       path: '/launches',
+    },
+    // FORK: approvals
+    {
+      name: t('approvals_menu', 'Approvals'),
+      hide: !approvalsEnabled,
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="21"
+          height="23"
+          viewBox="0 0 21 23"
+          fill="none"
+        >
+          <path
+            d="M7 11.5L9.5 14L14.5 9M19.5 11.5C19.5 16.4706 15.4706 20.5 10.5 20.5C5.52944 20.5 1.5 16.4706 1.5 11.5C1.5 6.52944 5.52944 2.5 10.5 2.5C15.4706 2.5 19.5 6.52944 19.5 11.5Z"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ),
+      path: '/approvals',
+    },
+    // FORK: approvals
+    {
+      name: t('approvals_briefs_menu', 'Topics'),
+      hide: !approvalsEnabled,
+      icon: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="21"
+          height="23"
+          viewBox="0 0 21 23"
+          fill="none"
+        >
+          <path
+            d="M6.5 7.5H14.5M6.5 11.5H14.5M6.5 15.5H11.5M4.5 21.5H16.5C17.6046 21.5 18.5 20.6046 18.5 19.5V3.5C18.5 2.39543 17.6046 1.5 16.5 1.5H4.5C3.39543 1.5 2.5 2.39543 2.5 3.5V19.5C2.5 20.6046 3.39543 21.5 4.5 21.5Z"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ),
+      path: '/briefs',
     },
     {
       name: 'Agent',

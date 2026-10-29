@@ -129,7 +129,10 @@ const CommentComposer: FC<{
   const fetch = useFetch();
   const toast = useToaster();
   const modals = useModals();
-  const { recaptchaSiteKey } = useVariables();
+  // FORK: approvals - with the fork on there is always a session: no name, no
+  // reCAPTCHA, and the endpoint with session
+  const { recaptchaSiteKey, approvalsEnabled } = useVariables();
+  const withSession = !!user?.id || !!approvalsEnabled;
   const { previewId, pending, setPending, mutate } = usePreviewComments();
   const [loading, setLoading] = useState(false);
   const form = useForm({ values: { content: '' } });
@@ -167,7 +170,7 @@ const CommentComposer: FC<{
 
       let displayName: string | undefined;
       let recaptchaToken: string | undefined;
-      if (!user?.id) {
+      if (!withSession) {
         const name = await askForName();
         if (!name) {
           return;
@@ -192,7 +195,7 @@ const CommentComposer: FC<{
       setLoading(true);
       try {
         const response = await fetch(
-          user?.id
+          withSession
             ? `/posts/${previewId}/comments`
             : `/public/posts/${previewId}/comments`,
           {
@@ -234,7 +237,7 @@ const CommentComposer: FC<{
         setLoading(false);
       }
     },
-    [user?.id, recaptchaSiteKey, previewId, parentId, anchor, askForName]
+    [withSession, recaptchaSiteKey, previewId, parentId, anchor, askForName]
   );
 
   return (
