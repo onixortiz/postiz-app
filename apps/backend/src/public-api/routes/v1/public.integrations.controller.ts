@@ -237,7 +237,13 @@ export class PublicIntegrationsController {
   ) {
     Sentry.metrics.count('public_api-request', 1);
     const getPostById = await this._postsService.getPost(org.id, id);
-    return this._postsService.deletePost(org.id, getPostById.group);
+    // FORK: approvals - no actor with an API key
+    return this._postsService.deletePost(
+      org.id,
+      getPostById.group,
+      undefined,
+      'API'
+    );
   }
 
   @Delete('/posts/group/:group')
@@ -246,7 +252,8 @@ export class PublicIntegrationsController {
     @Param('group') group: string
   ) {
     Sentry.metrics.count('public_api-request', 1);
-    return this._postsService.deletePost(org.id, group);
+    // FORK: approvals
+    return this._postsService.deletePost(org.id, group, undefined, 'API');
   }
 
   @Get('/is-connected')

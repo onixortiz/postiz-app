@@ -1598,8 +1598,8 @@ ese archivo se crea.
         2.  En `REVIEW_APPROVED`, `FINAL_APPROVED` y `FORCED`, el actor no es
             autor del lote (definición en el [Glosario](#glosario), con
             `authorIds`).
-        3.  En `FINAL_APPROVED`, el actor tampoco hizo el último
-            `REVIEW_APPROVED`.
+        3.  En `FINAL_APPROVED`, y en `FORCED` desde `AWAITING_FINAL`, el
+            actor tampoco hizo el último `REVIEW_APPROVED`.
     *   `actorRoleFor(orgId, userId, action)`. Para las acciones del flujo,
         devuelve el primero de los roles admitidos que tenga la persona, en el
         orden de la lista anterior. Para `CREATED` y `CONTENT_EDITED`,
@@ -1816,6 +1816,19 @@ ese archivo se crea.
             post es de la organización.
     *   `setRoles(orgId, userId, roles[], actor)`: llama a `assertIsOrgAdmin`.
         Si `userId` no es miembro, lanza `NotFoundException`.
+*   **Implementado (fase 3):**
+    *   `reviewApprove` compara la huella con el último `SUBMITTED` o
+        `RESET_BY_EDIT`, y `finalApprove` con el último `REVIEW_APPROVED`
+        (`lastEventWithFingerprints` recibe la lista de acciones). Un
+        `CONTENT_EDITED` cuyo reinicio falló nunca sirve de referencia.
+    *   `reject` y `markProblem` comprueban la `version` antes de crear el
+        comentario, para no dejar comentarios sueltos con un `409`.
+    *   En `force`, mover la fecha pasada y programar van dentro del mismo
+        `try`: si algo falla, el lote vuelve a su etapa original con
+        `forced = false` y sin `approvedFingerprints`. Si la `transition` de
+        vuelta pierde la carrera, se escribe un error en el log; la
+        comprobación de `getPostsList` sigue impidiendo la publicación.
+    *   Los mensajes de error del fork están en español.
 *   **Por qué**: aquí vive la lógica de cada paso del flujo.
 
 ##### 6. `libraries/nestjs-libraries/src/database/prisma/approvals/briefs.service.ts` (Create)
@@ -2050,6 +2063,15 @@ ese archivo se crea.
         `req.user?.isSuperAdmin` y
         (`req.cookies.impersonate || req.headers.impersonate`), que es la misma
         condición de `auth.middleware.ts:60-61`.
+*   **Implementado (fase 3):** los dos controladores llevan
+    `@UseGuards(ApprovalsEnabledGuard)`, que responde `404` en todas sus rutas
+    si `APPROVALS_ENABLED` no es `'true'`. El guard y la función
+    `assertNotImpersonating` viven en
+    `apps/backend/src/services/auth/approvals.guard.ts` (archivo 13b), para
+    que la condición copiada del middleware esté en un solo lugar.
+    `POST /approvals/stages` es una lectura y no rechaza la suplantación.
+    `SetWorkflowRolesDto` usa `@ArrayUnique()`, y `GET /briefs` valida
+    `status` con `ListBriefsQueryDto`.
 *   **Por qué**: es la única entrada a las acciones del flujo. Solo se puede
     usar con sesión web, nunca con API key ni desde MCP, y nunca con
     suplantación.
@@ -2077,6 +2099,13 @@ ese archivo se crea.
         `@GetUserFromRequest() user` y pasan `user.id` como `actorUserId`;
     *   el endpoint de comentarios (líneas 85-93) comprueba que el post sea de
         la organización antes de crear el comentario.
+*   **Implementado (fase 3):** la comprobación de organización del endpoint
+    de comentarios vive en `PostsService.createPublicComment`, que recibe un
+    `orgId` opcional (`// FORK`). Este cambio aplica también con
+    `APPROVALS_ENABLED=false`: cierra un hueco de upstream y se registra en
+    `FORK_TOUCHPOINTS.md`. `public.integrations.controller.ts` (`deletePost`)
+    y la herramienta MCP `delete.post.tool.ts` pasan `'API'` y `'MCP'` como
+    superficie.
 *   **Por qué**: el historial necesita saber quién editó, y se cierra el
     comentario cruzado entre organizaciones.
 

@@ -30,7 +30,7 @@ export class ApprovalPolicyService {
     actorUserId: string,
     orgId: string,
     action: ApprovalAction,
-    approval: { id: string }
+    approval: { id: string; stage?: string }
   ) {
     const allowed = ACTION_ROLES[action];
     if (!allowed) {
@@ -58,7 +58,11 @@ export class ApprovalPolicyService {
       }
     }
 
-    if (action === 'FINAL_APPROVED') {
+    // nobody approves two stages in a row, forcing included
+    if (
+      action === 'FINAL_APPROVED' ||
+      (action === 'FORCED' && approval.stage === 'AWAITING_FINAL')
+    ) {
       const review = await this._approvalsRepository.lastActorOf(
         orgId,
         approval.id,
@@ -84,6 +88,12 @@ export class ApprovalPolicyService {
     const roles = await this._approvalsRepository.getRoles(orgId, userId);
     const candidates = ACTION_ROLES[action] || ['CREATOR'];
     return candidates.find((role) => roles.includes(role)) || 'MEMBER';
+  }
+
+  async hasRole(orgId: string, userId: string, role: WorkflowRole) {
+    return (await this._approvalsRepository.getRoles(orgId, userId)).includes(
+      role
+    );
   }
 
   async assertIsOrgAdmin(userId: string, orgId: string) {

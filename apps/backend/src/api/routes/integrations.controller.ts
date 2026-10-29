@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -23,6 +24,8 @@ import { IntegrationTimeDto } from '@gitroom/nestjs-libraries/dtos/integrations/
 import { IntegrationNameDto } from '@gitroom/nestjs-libraries/dtos/integrations/integration.name.dto';
 import { CustomerNameDto } from '@gitroom/nestjs-libraries/dtos/integrations/customer.name.dto';
 import { PlugDto } from '@gitroom/nestjs-libraries/dtos/plugs/plug.dto';
+// FORK: approvals
+import { ApprovalGateService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.gate.service';
 import {
   Disconnect,
   RefreshToken,
@@ -45,7 +48,9 @@ export class IntegrationsController {
     private _integrationManager: IntegrationManager,
     private _integrationService: IntegrationService,
     private _postService: PostsService,
-    private _refreshIntegrationService: RefreshIntegrationService
+    private _refreshIntegrationService: RefreshIntegrationService,
+    // FORK: approvals
+    private _approvalGate: ApprovalGateService
   ) {}
 
   @Post('/provider/:id/connect')
@@ -484,6 +489,8 @@ export class IntegrationsController {
     @GetOrgFromRequest() org: Organization,
     @Body() body: PlugDto
   ) {
+    // FORK: approvals - plugs publish without approval, so they don't run
+    this.assertPlugsEnabled();
     return this._integrationService.createOrUpdatePlug(org.id, id, body);
   }
 
@@ -493,7 +500,18 @@ export class IntegrationsController {
     @GetOrgFromRequest() org: Organization,
     @Body('status') status: boolean
   ) {
+    // FORK: approvals
+    this.assertPlugsEnabled();
     return this._integrationService.changePlugActivation(org.id, id, status);
+  }
+
+  // FORK: approvals
+  private assertPlugsEnabled() {
+    if (!this._approvalGate.plugsEnabled()) {
+      throw new BadRequestException(
+        'Los plugs están desactivados en esta instalación'
+      );
+    }
   }
 
   @Get('/telegram/updates')

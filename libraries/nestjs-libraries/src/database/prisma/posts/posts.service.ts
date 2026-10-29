@@ -1806,9 +1806,11 @@ export class PostsService {
     previewId: string,
     body: CreatePublicCommentDto,
     userId: string | null,
-    ip: string
+    ip: string,
+    // FORK: approvals - from the dashboard, the post has to be of the org
+    orgId?: string
   ) {
-    const posts = await this.getPostsRecursively(previewId, false);
+    const posts = await this.getPostsRecursively(previewId, false, orgId);
     if (!posts.length) {
       throw new NotFoundException('Post not found');
     }

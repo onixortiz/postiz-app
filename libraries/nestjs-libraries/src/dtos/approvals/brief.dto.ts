@@ -1,4 +1,11 @@
-import { IsDateString, IsOptional, IsString, MaxLength } from 'class-validator';
+import { BriefStatus } from '@prisma/client';
+import {
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 // FORK: approvals
 
@@ -37,4 +44,10 @@ export class UpdateBriefDto {
   @IsOptional()
   @IsString()
   assignedCreatorId?: string;
+}
+
+export class ListBriefsQueryDto {
+  @IsOptional()
+  @IsEnum(BriefStatus)
+  status?: BriefStatus;
 }

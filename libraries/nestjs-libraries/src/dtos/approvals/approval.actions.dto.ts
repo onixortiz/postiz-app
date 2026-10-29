@@ -1,5 +1,6 @@
 import {
   ArrayMaxSize,
+  ArrayUnique,
   ArrayMinSize,
   IsArray,
   IsEnum,
@@ -88,6 +89,7 @@ export class StagesQueryDto {
 
 export class SetWorkflowRolesDto {
   @IsArray()
+  @ArrayUnique()
   @IsEnum(WorkflowRole, { each: true })
   roles: WorkflowRole[];
 }

@@ -13,7 +13,7 @@ const branches90 = { branches: 90 };
 const thresholdFiles: string[] = [
   './libraries/nestjs-libraries/src/database/prisma/approvals/approval.gate.service.ts',
   './libraries/nestjs-libraries/src/database/prisma/approvals/approval.policy.service.ts',
-  // './libraries/nestjs-libraries/src/database/prisma/approvals/approval.service.ts',
+  './libraries/nestjs-libraries/src/database/prisma/approvals/approval.service.ts',
 ];
 
 const config: Config = {

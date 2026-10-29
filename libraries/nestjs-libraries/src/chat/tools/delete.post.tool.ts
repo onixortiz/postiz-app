@@ -69,7 +69,13 @@ If the post cannot be deleted, the result contains output.errors explaining why.
           };
         }
 
-        await this._postsService.deletePost(organizationId, post.group);
+        // FORK: approvals
+        await this._postsService.deletePost(
+          organizationId,
+          post.group,
+          undefined,
+          'MCP'
+        );
 
         return { output: { postId: post.id } };
       },

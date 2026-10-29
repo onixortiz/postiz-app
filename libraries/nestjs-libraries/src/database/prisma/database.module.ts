@@ -55,6 +55,8 @@ import { ApprovalsRepository } from '@gitroom/nestjs-libraries/database/prisma/a
 import { ApprovalNotifyService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.notify.service';
 import { ApprovalPolicyService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.policy.service';
 import { ApprovalGateService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.gate.service';
+import { ApprovalService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.service';
+import { BriefsService } from '@gitroom/nestjs-libraries/database/prisma/approvals/briefs.service';
 
 @Global()
 @Module({
@@ -119,6 +121,8 @@ import { ApprovalGateService } from '@gitroom/nestjs-libraries/database/prisma/a
     ApprovalNotifyService,
     ApprovalPolicyService,
     ApprovalGateService,
+    ApprovalService,
+    BriefsService,
   ],
   get exports() {
     return this.providers;

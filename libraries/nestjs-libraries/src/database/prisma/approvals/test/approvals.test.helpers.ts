@@ -22,6 +22,8 @@ import { ApprovalsRepository } from '@gitroom/nestjs-libraries/database/prisma/a
 import { ApprovalPolicyService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.policy.service';
 import { ApprovalNotifyService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.notify.service';
 import { ApprovalGateService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.gate.service';
+import { ApprovalService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.service';
+import { BriefsService } from '@gitroom/nestjs-libraries/database/prisma/approvals/briefs.service';
 import { CreatePostDto } from '@gitroom/nestjs-libraries/dtos/posts/create.post.dto';
 
 // FORK: approvals. Shared setup for the fork tests: real Postgres, real
@@ -136,6 +138,8 @@ export interface ApprovalsTestContext {
   prisma: PrismaService;
   posts: PostsService;
   gate: ApprovalGateService;
+  approvals: ApprovalService;
+  briefs: BriefsService;
   policy: ApprovalPolicyService;
   notify: ApprovalNotifyService;
   repository: ApprovalsRepository;
@@ -159,6 +163,8 @@ export const createApprovalsTestModule =
         ApprovalPolicyService,
         ApprovalNotifyService,
         ApprovalGateService,
+        ApprovalService,
+        BriefsService,
         { provide: NotificationService, useValue: notifications.service },
         { provide: TemporalService, useValue: temporal.service },
         { provide: IntegrationManager, useValue: mock<IntegrationManager>() },
@@ -180,6 +186,8 @@ export const createApprovalsTestModule =
       prisma: module.get(PrismaService),
       posts: module.get(PostsService),
       gate: module.get(ApprovalGateService),
+      approvals: module.get(ApprovalService),
+      briefs: module.get(BriefsService),
       policy: module.get(ApprovalPolicyService),
       notify: module.get(ApprovalNotifyService),
       repository: module.get(ApprovalsRepository),

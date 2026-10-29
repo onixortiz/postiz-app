@@ -56,6 +56,10 @@ import { FarcasterProvider } from '@gitroom/backend/services/auth/providers/farc
 import { WalletProvider } from '@gitroom/backend/services/auth/providers/wallet.provider';
 import { OauthProvider } from '@gitroom/backend/services/auth/providers/oauth.provider';
 import { StripeController } from '@gitroom/backend/api/routes/stripe.controller';
+// FORK: approvals
+import { ApprovalsController } from '@gitroom/backend/api/routes/approvals.controller';
+import { BriefsController } from '@gitroom/backend/api/routes/briefs.controller';
+import { ApprovalsEnabledGuard } from '@gitroom/backend/services/auth/approvals.guard';
 
 const authenticatedController = [
   UsersController,
@@ -78,6 +82,9 @@ const authenticatedController = [
   OAuthAuthorizedController,
   AnnouncementsController,
   AdminController,
+  // FORK: approvals
+  ApprovalsController,
+  BriefsController,
 ];
 @Module({
   imports: [UploadModule],
@@ -113,6 +120,8 @@ const authenticatedController = [
     AuthMiddleware,
     UploadWidgetAuthMiddleware,
     PoliciesGuard,
+    // FORK: approvals
+    ApprovalsEnabledGuard,
     PermissionsService,
     CodesService,
     IntegrationManager,

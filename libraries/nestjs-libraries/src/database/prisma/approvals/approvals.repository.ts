@@ -211,13 +211,17 @@ export class ApprovalsRepository {
     });
   }
 
-  lastEventWithFingerprints(orgId: string, approvalId: string) {
+  lastEventWithFingerprints(
+    orgId: string,
+    approvalId: string,
+    actions: ApprovalAction[] = FINGERPRINT_ACTIONS
+  ) {
     return this._postApprovalEvent.model.postApprovalEvent.findFirst({
       where: {
         organizationId: orgId,
         approvalId,
         action: {
-          in: FINGERPRINT_ACTIONS,
+          in: actions,
         },
       },
       orderBy: {

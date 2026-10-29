@@ -39,7 +39,7 @@
     "postinstall": "pnpm run prisma-generate",
     "test": "jest --coverage --detectOpenHandles --reporters=default --reporters=jest-junit",
     "test:fork": "jest -c jest.fork.config.ts",
-    "lint:fork": "ESLINT_USE_FLAT_CONFIG=true eslint -c eslint.fork.config.mjs --no-error-on-unmatched-pattern --max-warnings 0 libraries/nestjs-libraries/src/database/prisma/approvals libraries/nestjs-libraries/src/dtos/approvals apps/backend/src/api/routes/approvals.controller.ts apps/backend/src/api/routes/briefs.controller.ts apps/orchestrator/src/workflows/approval.sweep.workflow.ts apps/orchestrator/src/activities/approval.activity.ts apps/frontend/src/components/approvals apps/frontend/src/components/briefs libraries/nestjs-libraries/src/database/prisma/posts/posts.service.approvals.spec.ts apps/orchestrator/src/activities/post.activity.approvals.spec.ts jest.fork.config.ts"
+    "lint:fork": "ESLINT_USE_FLAT_CONFIG=true eslint -c eslint.fork.config.mjs --no-error-on-unmatched-pattern --max-warnings 0 libraries/nestjs-libraries/src/database/prisma/approvals libraries/nestjs-libraries/src/dtos/approvals apps/backend/src/api/routes/approvals.controller.ts apps/backend/src/api/routes/briefs.controller.ts apps/orchestrator/src/workflows/approval.sweep.workflow.ts apps/orchestrator/src/activities/approval.activity.ts apps/frontend/src/components/approvals apps/frontend/src/components/briefs libraries/nestjs-libraries/src/database/prisma/posts/posts.service.approvals.spec.ts apps/orchestrator/src/activities/post.activity.approvals.spec.ts apps/backend/src/api/routes/approvals.controller.approvals.spec.ts apps/backend/src/services/auth/approvals.guard.ts jest.fork.config.ts"
   },
   "dependencies": {
     "@ag-ui/mastra": "^1.1.4",

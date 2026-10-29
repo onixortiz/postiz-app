@@ -85,11 +85,20 @@ export class PostsController {
   @Post('/:id/comments')
   async createComment(
     @GetUserFromRequest() user: User,
+    // FORK: approvals
+    @GetOrgFromRequest() org: Organization,
     @Param('id') id: string,
     @Body() body: CreatePublicCommentDto,
     @RealIP() ip: string
   ) {
-    return this._postsService.createPublicComment(id, body, user.id, ip);
+    // FORK: approvals - the post has to belong to the organization
+    return this._postsService.createPublicComment(
+      id,
+      body,
+      user.id,
+      ip,
+      org.id
+    );
   }
 
   @Put('/comments/:commentId/resolve')
@@ -205,7 +214,9 @@ export class PostsController {
   @CheckPolicies([AuthorizationActions.Create, Sections.POSTS_PER_MONTH])
   async createPost(
     @GetOrgFromRequest() org: Organization,
-    @Body() rawBody: any
+    @Body() rawBody: any,
+    // FORK: approvals
+    @GetUserFromRequest() user: User
   ) {
     // Server-side validation — never trust the client to have validated.
     const validation = await this._postsService.validatePosts(
@@ -245,7 +256,8 @@ export class PostsController {
     }
 
     const body = await this._postsService.mapTypeToPost(rawBody, org.id);
-    return this._postsService.createPost(org.id, body, 'WEB');
+    // FORK: approvals - the actor goes to the approval history
+    return this._postsService.createPost(org.id, body, 'WEB', false, user.id);
   }
 
   @Post('/generator/draft')
@@ -288,9 +300,11 @@ export class PostsController {
   @Delete('/:group')
   deletePost(
     @GetOrgFromRequest() org: Organization,
-    @Param('group') group: string
+    @Param('group') group: string,
+    // FORK: approvals
+    @GetUserFromRequest() user: User
   ) {
-    return this._postsService.deletePost(org.id, group);
+    return this._postsService.deletePost(org.id, group, user.id, 'WEB');
   }
 
   @Put('/:id/date')
@@ -301,9 +315,19 @@ export class PostsController {
     // 'update' is the safe default: clients that don't send an action must
     // never requeue (and thereby republish) a post by accident
     @Body('action') action: 'schedule' | 'update' = 'update',
-    @Body('republish') republish = false
+    @Body('republish') republish = false,
+    // FORK: approvals
+    @GetUserFromRequest() user: User
   ) {
-    return this._postsService.changeDate(org.id, id, date, action, republish);
+    return this._postsService.changeDate(
+      org.id,
+      id,
+      date,
+      action,
+      republish,
+      user.id,
+      'WEB'
+    );
   }
 
   @Post('/separate-posts')
