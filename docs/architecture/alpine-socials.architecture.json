@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Alpine Socials en Railway: arquitectura",
+    "output": "docs/architecture/alpine-socials-architecture.html",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/onixortiz/postiz-app.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "b8691024a9f5f795250000001e3eec72980e6c8a"
+    }
+  },
+  "components": [
+    { "id": "team", "type": "external", "label": "Equipo", "sublabel": "navegador, 4 roles", "pos": [40, 280], "size": [150, 62] },
+    { "id": "edge", "type": "cloud", "label": "Railway", "sublabel": "HTTPS *.up.railway.app", "pos": [280, 280], "size": [150, 62] },
+    { "id": "nginx", "type": "backend", "label": "nginx", "sublabel": "proxy :5000", "pos": [520, 280], "size": [150, 62], "tag": "contenedor Postiz",
+      "sources": [ { "path": "var/docker/nginx.conf", "line": 14, "end_line": 22 }, { "path": "var/docker/nginx.conf", "line": 53, "end_line": 54 }, { "path": "Dockerfile.dev", "line": 28 } ] },
+    { "id": "frontend", "type": "frontend", "label": "Frontend Next.js", "sublabel": ":4200, login y UI", "pos": [520, 100], "size": [150, 62], "tag": "contenedor Postiz",
+      "sources": [ { "path": "apps/frontend/src/proxy.ts", "line": 92, "end_line": 95 }, { "path": "apps/frontend/src/components/auth/login.tsx", "line": 25, "end_line": 36 } ] },
+    { "id": "uploads", "type": "database", "label": "Volumen /uploads", "sublabel": "imágenes y videos", "pos": [520, 460], "size": [150, 62], "tag": "contenedor Postiz",
+      "sources": [ { "path": "libraries/nestjs-libraries/src/upload/upload.factory.ts", "line": 15, "end_line": 19 }, { "path": "var/docker/nginx.conf", "line": 36, "end_line": 37 } ] },
+    { "id": "backend", "type": "backend", "label": "Backend NestJS", "sublabel": "API :3000, aprobaciones", "pos": [760, 280], "size": [160, 62], "tag": "gate al guardar",
+      "sources": [ { "path": "apps/backend/src/main.ts", "line": 82, "end_line": 85 }, { "path": "apps/backend/src/api/routes/approvals.controller.ts", "line": 35, "end_line": 37 }, { "path": "libraries/nestjs-libraries/src/database/prisma/posts/posts.service.ts", "line": 73, "end_line": 86 } ] },
+    { "id": "redis", "type": "database", "label": "Redis", "sublabel": "caché y límites", "pos": [765, 100], "size": [150, 62],
+      "sources": [ { "path": "libraries/nestjs-libraries/src/redis/redis.service.ts", "line": 38, "end_line": 40 } ] },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "Prisma: posts, aprobaciones", "pos": [1010, 280], "size": [170, 62],
+      "sources": [ { "path": "libraries/nestjs-libraries/src/database/prisma/schema.prisma", "line": 6, "end_line": 8 }, { "path": "package.json", "line": 18 } ] },
+    { "id": "temporal", "type": "messagebus", "label": "Temporal", "sublabel": "workflows :7233", "pos": [765, 460], "size": [150, 62],
+      "sources": [ { "path": "libraries/nestjs-libraries/src/temporal/temporal.module.ts", "line": 27, "end_line": 30 } ] },
+    { "id": "orchestrator", "type": "backend", "label": "Orquestador", "sublabel": "worker de Temporal", "pos": [1015, 460], "size": [160, 62], "tag": "gate al publicar",
+      "sources": [ { "path": "apps/orchestrator/src/main.ts", "line": 13, "end_line": 18 }, { "path": "apps/orchestrator/src/activities/post.activity.ts", "line": 177, "end_line": 192 }, { "path": "apps/orchestrator/src/workflows/approval.sweep.workflow.ts", "line": 9, "end_line": 15 } ] },
+    { "id": "social", "type": "external", "label": "Redes sociales", "sublabel": "Facebook, Instagram, LinkedIn", "pos": [1270, 460], "size": [180, 62],
+      "sources": [ { "path": "libraries/nestjs-libraries/src/integrations/social/facebook.provider.ts", "line": 607 }, { "path": "libraries/nestjs-libraries/src/integrations/social/instagram.provider.ts", "line": 955 }, { "path": "libraries/nestjs-libraries/src/integrations/social/linkedin.provider.ts", "line": 761 } ] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Railway: proyecto postiz-approvals", "wraps": ["edge", "nginx", "frontend", "uploads", "backend", "redis", "postgres", "temporal", "orchestrator"] }
+  ],
+  "connections": [
+    { "id": "team-edge", "from": "team", "to": "edge", "label": "HTTPS", "variant": "emphasis" },
+    { "id": "edge-nginx", "from": "edge", "to": "nginx", "label": ":5000", "variant": "emphasis" },
+    { "id": "nginx-frontend", "from": "nginx", "to": "frontend", "label": "/ páginas" },
+    { "id": "nginx-backend", "from": "nginx", "to": "backend", "label": "/api", "variant": "emphasis" },
+    { "id": "nginx-uploads", "from": "nginx", "to": "uploads", "label": "/uploads", "variant": "dashed" },
+    { "id": "backend-redis", "from": "backend", "to": "redis", "label": "caché" },
+    { "id": "backend-postgres", "from": "backend", "to": "postgres", "label": "Prisma SQL", "variant": "emphasis" },
+    { "id": "backend-temporal", "from": "backend", "to": "temporal", "label": "programa post", "variant": "dashed" },
+    { "id": "temporal-orchestrator", "from": "temporal", "to": "orchestrator", "label": "tareas" },
+    { "id": "orchestrator-postgres", "from": "orchestrator", "to": "postgres", "label": "¿APROBADO?", "variant": "security" },
+    { "id": "orchestrator-social", "from": "orchestrator", "to": "social", "label": "publica", "variant": "emphasis" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Un contenedor, tres procesos", "items": ["nginx, frontend, backend y orquestador corren juntos con pm2 en el servicio Postiz", "Railway también aloja Postgres, Redis, Temporal, su Postgres y Elasticsearch"] },
+    { "dot": "rose", "title": "Flujo de aprobación", "items": ["Technical Writer, Creator, Reviewer y Monthly Reviewer", "Guardar un post lo deja en borrador hasta la aprobación final", "Al publicar, el orquestador vuelve a comprobar la aprobación y la huella del contenido"] },
+    { "dot": "emerald", "title": "Acceso", "items": ["Solo correo y contraseña; sin Google", "Registro cerrado salvo invitación de un admin del equipo", "Avisos solo dentro de la app (sin correo configurado)"] }
+  ]
+}
