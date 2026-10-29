@@ -499,7 +499,10 @@ export class ApprovalsRepository {
   // no deletedAt filter: a media deleted from the library is still a known media
   async findExistingMediaIds(orgId: string, ids: string[]) {
     if (!ids.length) {
-      return new Set<string>();
+      return new Map<
+        string,
+        { alt: string | null; thumbnail: string | null }
+      >();
     }
 
     const media = await this._media.model.media.findMany({
@@ -511,10 +514,49 @@ export class ApprovalsRepository {
       },
       select: {
         id: true,
+        alt: true,
+        thumbnail: true,
       },
     });
 
-    return new Set(media.map((p) => p.id));
+    return new Map(
+      media.map((p) => [p.id, { alt: p.alt, thumbnail: p.thumbnail }])
+    );
+  }
+
+  getPostForGate(orgId: string, postId: string) {
+    return this._post.model.post.findFirst({
+      where: {
+        organizationId: orgId,
+        id: postId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        state: true,
+        batchId: true,
+        integrationId: true,
+        parentPostId: true,
+        publishDate: true,
+      },
+    });
+  }
+
+  getFirstRootPostId(orgId: string, batchId: string) {
+    return this._post.model.post.findFirst({
+      where: {
+        organizationId: orgId,
+        batchId,
+        parentPostId: null,
+        deletedAt: null,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+      select: {
+        id: true,
+      },
+    });
   }
 
   // ---- inbox and calendar ----
@@ -751,6 +793,43 @@ export class ApprovalsRepository {
     });
 
     return count > 0;
+  }
+
+  async getMemberEmail(orgId: string, userId: string) {
+    const row = await this._userOrganization.model.userOrganization.findFirst({
+      where: {
+        organizationId: orgId,
+        userId,
+        disabled: false,
+        user: {
+          deletedAt: null,
+        },
+      },
+      select: {
+        user: {
+          select: {
+            email: true,
+          },
+        },
+      },
+    });
+
+    return row?.user.email || null;
+  }
+
+  async getOrgRole(orgId: string, userId: string) {
+    const row = await this._userOrganization.model.userOrganization.findFirst({
+      where: {
+        organizationId: orgId,
+        userId,
+        disabled: false,
+      },
+      select: {
+        role: true,
+      },
+    });
+
+    return row?.role || null;
   }
 
   setRoles(

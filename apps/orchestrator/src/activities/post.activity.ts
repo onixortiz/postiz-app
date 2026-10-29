@@ -33,6 +33,8 @@ import {
   Disconnect,
   PublishedWithError,
 } from '@gitroom/nestjs-libraries/integrations/social.abstract';
+// FORK: approvals
+import { ApprovalGateService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.gate.service';
 
 // Drops fields the workflow and downstream activities never read — biggest wins are `error` (grows per retry) and `childrenPost` (Prisma side-loads it on every recursive row).
 function slimPost(post: any) {
@@ -104,7 +106,9 @@ export class PostActivity {
     private _refreshIntegrationService: RefreshIntegrationService,
     private _webhookService: WebhooksService,
     private _temporalService: TemporalService,
-    private _subscriptionService: SubscriptionService
+    private _subscriptionService: SubscriptionService,
+    // FORK: approvals
+    private _approvalGate: ApprovalGateService
   ) {}
 
   @ActivityMethod()
@@ -179,6 +183,12 @@ export class PostActivity {
       if (!subscription) {
         return [];
       }
+    }
+
+    // FORK: approvals - the publish-time guarantee: with [] the workflow ends
+    // in ERROR 'No Post' without publishing
+    if (!(await this._approvalGate.isPublishAllowed(orgId, postId))) {
+      return [];
     }
 
     const getPosts = await this._postService.getPostsRecursively(

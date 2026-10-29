@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   ValidationPipe,
 } from '@nestjs/common';
@@ -36,6 +37,8 @@ import sharp from 'sharp';
 import { UploadFactory } from '@gitroom/nestjs-libraries/upload/upload.factory';
 import { Readable } from 'stream';
 import { isAllowedMediaPath } from '@gitroom/helpers/utils/is.allowed.media.path';
+// FORK: approvals
+import { ApprovalGateService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.gate.service';
 import { OpenaiService } from '@gitroom/nestjs-libraries/openai/openai.service';
 dayjs.extend(utc);
 import * as Sentry from '@sentry/nestjs';
@@ -67,6 +70,8 @@ type PostWithConditionals = Post & {
 @Injectable()
 export class PostsService {
   private storage = UploadFactory.createStorage();
+  // FORK: approvals
+  private readonly _approvalLogger = new Logger('PostsService approvals');
   constructor(
     private _postRepository: PostsRepository,
     private _integrationManager: IntegrationManager,
@@ -75,7 +80,9 @@ export class PostsService {
     private _shortLinkService: ShortLinkService,
     private _openaiService: OpenaiService,
     private _temporalService: TemporalService,
-    private _refreshIntegrationService: RefreshIntegrationService
+    private _refreshIntegrationService: RefreshIntegrationService,
+    // FORK: approvals
+    private _approvalGate: ApprovalGateService
   ) {}
 
   searchForMissingThreeHoursPosts() {
@@ -813,6 +820,11 @@ export class PostsService {
     id: string,
     settings: any
   ) {
+    // FORK: approvals - plugs publish without going through the approval gate
+    if (!this._approvalGate.plugsEnabled()) {
+      return [];
+    }
+
     const plugs = Object.entries(settings).filter(([key]) => {
       return key.indexOf('plug-') > -1;
     });
@@ -854,6 +866,11 @@ export class PostsService {
     providerName: string,
     integrationId: string
   ) {
+    // FORK: approvals
+    if (!this._approvalGate.plugsEnabled()) {
+      return [];
+    }
+
     const loadAllPlugs = this._integrationManager.getAllPlugs();
     const getPlugs = await this._integrationService.getPlugs(
       orgId,
@@ -881,7 +898,18 @@ export class PostsService {
       });
   }
 
-  async deletePost(orgId: string, group: string) {
+  async deletePost(
+    orgId: string,
+    group: string,
+    // FORK: approvals
+    actorUserId?: string,
+    creationMethod: CreationMethod = 'UNKNOWN'
+  ) {
+    // FORK: approvals
+    const approvalContext = await this._approvalGate.beforeDeletePost(
+      orgId,
+      group
+    );
     const post = await this._postRepository.deletePost(orgId, group);
 
     if (post?.id) {
@@ -907,6 +935,22 @@ export class PostsService {
           } catch (err) {}
         }
       } catch (err) {}
+
+      // FORK: approvals
+      try {
+        const { toDraft } = await this._approvalGate.afterDeletePost(
+          orgId,
+          approvalContext,
+          actorUserId,
+          creationMethod
+        );
+        await this.applyApprovalLists(orgId, [], toDraft, []);
+      } catch (err) {
+        this._approvalLogger.error(
+          `deletePost ${group}`,
+          (err as Error)?.stack
+        );
+      }
 
       return { id: post.id };
     }
@@ -1137,81 +1181,194 @@ export class PostsService {
     orgId: string,
     body: CreatePostDto,
     creationMethod: CreationMethod,
-    keepGroup = false
+    keepGroup = false,
+    // FORK: approvals
+    actorUserId?: string
   ): Promise<any[]> {
     const postList = [];
     const batchId = uuidv4();
-    for (const post of body.posts) {
-      if (
-        (body.type === 'schedule' || body.type === 'now') &&
-        !body.republish &&
-        post.value?.[0]?.id
-      ) {
-        this.guardAgainstRepublish(
-          await this._postRepository.getPostById(post.value[0].id, orgId),
-          'createPost'
+    // FORK: approvals - with the fork on, schedule and now are saved as draft
+    // and afterSave decides what goes back to QUEUE
+    const decision = await this._approvalGate.typeForSave(orgId, body);
+    const savedRootIds: string[] = [];
+    const savedAsDraft: string[] = [];
+    let stageByPostId: Record<string, string> = {};
+    let loopFailed = true;
+    let approvalError: unknown;
+    try {
+      for (const post of body.posts) {
+        const type = decision.typeByIntegration[post.integration.id];
+        if (
+          (type === 'schedule' || type === 'now') &&
+          !body.republish &&
+          post.value?.[0]?.id
+        ) {
+          this.guardAgainstRepublish(
+            await this._postRepository.getPostById(post.value[0].id, orgId),
+            'createPost'
+          );
+        }
+        const provider = this._integrationManager.getSocialIntegration(
+          (post.settings as any)?.__type
         );
-      }
-      const provider = this._integrationManager.getSocialIntegration(
-        (post.settings as any)?.__type
-      );
-      const removeLinks = !!provider?.stripLinks?.();
+        const removeLinks = !!provider?.stripLinks?.();
 
-      const messages = (post.value || []).map((p) => p.content);
-      // No point shortlinking links on platforms that strip them out anyway
-      const updateContent =
-        !body.shortLink || removeLinks
-          ? messages
-          : await this._shortLinkService.convertTextToShortLinks(
-              orgId,
-              messages
-            );
+        const messages = (post.value || []).map((p) => p.content);
+        // No point shortlinking links on platforms that strip them out anyway
+        const updateContent =
+          !body.shortLink || removeLinks
+            ? messages
+            : await this._shortLinkService.convertTextToShortLinks(
+                orgId,
+                messages
+              );
 
-      post.value = (post.value || []).map((p, i) => ({
-        ...p,
-        content: removeLinks ? stripLinks(updateContent[i]) : updateContent[i],
-      }));
+        post.value = (post.value || []).map((p, i) => ({
+          ...p,
+          content: removeLinks
+            ? stripLinks(updateContent[i])
+            : updateContent[i],
+        }));
 
-      const { posts } = await this._postRepository.createOrUpdatePost(
-        body.type,
-        orgId,
-        body.type === 'now'
-          ? dayjs().format('YYYY-MM-DDTHH:mm:00')
-          : post.date || body.date,
-        post,
-        body.tags,
-        creationMethod,
-        body.inter,
-        keepGroup,
-        batchId
-      );
-
-      if (!posts?.length) {
-        return [] as any[];
-      }
-
-      const existingIds = (post.value || []).map((p) => p.id).filter(Boolean);
-      await this.detachStaleAnchors(
-        posts.filter((p) => existingIds.includes(p.id))
-      );
-
-      if (body.type !== 'update') {
-        this.startWorkflow(
-          post.settings.__type.split('-')[0].toLowerCase(),
-          posts[0].id,
+        const { posts } = await this._postRepository.createOrUpdatePost(
+          type,
           orgId,
-          posts[0].state
-        ).catch((err) => {});
-      }
+          body.type === 'now'
+            ? dayjs().format('YYYY-MM-DDTHH:mm:00')
+            : post.date || body.date,
+          post,
+          body.tags,
+          creationMethod,
+          decision.inter,
+          keepGroup,
+          batchId
+        );
 
-      Sentry.metrics.count('post_created', 1);
-      postList.push({
-        postId: posts[0].id,
-        integration: post.integration.id,
-      });
+        if (!posts?.length) {
+          return [] as any[];
+        }
+
+        // FORK: approvals - recorded right after the write, so a failure
+        // below still reaches afterSave. Drafts get their workflows terminated
+        // after the loop, awaited, so it can't race with the ones queued again
+        savedRootIds.push(posts[0].id);
+        if (type !== 'update' && this._approvalGate.enabled()) {
+          savedAsDraft.push(posts[0].id);
+        }
+
+        const existingIds = (post.value || []).map((p) => p.id).filter(Boolean);
+        await this.detachStaleAnchors(
+          posts.filter((p) => existingIds.includes(p.id))
+        );
+
+        if (type !== 'update' && !this._approvalGate.enabled()) {
+          this.startWorkflow(
+            post.settings.__type.split('-')[0].toLowerCase(),
+            posts[0].id,
+            orgId,
+            posts[0].state
+          ).catch((err) => {});
+        }
+
+        Sentry.metrics.count('post_created', 1);
+        postList.push({
+          postId: posts[0].id,
+          integration: post.integration.id,
+        });
+      }
+      loopFailed = false;
+    } finally {
+      // FORK: approvals - also when the loop failed half way: what was saved
+      // is a draft, so nothing is queued without comparing the fingerprint
+      if (this._approvalGate.enabled()) {
+        let toQueue: string[] = [];
+        let toDraft: string[] = [];
+        try {
+          const result = await this._approvalGate.afterSave(
+            orgId,
+            savedRootIds,
+            body.type,
+            actorUserId,
+            creationMethod
+          );
+          toQueue = result.toQueue;
+          toDraft = result.toDraft;
+          stageByPostId = result.stageByPostId;
+        } catch (err) {
+          approvalError = err;
+          this._approvalLogger.error(
+            'createPost afterSave',
+            (err as Error)?.stack
+          );
+        }
+
+        try {
+          await this.applyApprovalLists(orgId, savedAsDraft, toDraft, toQueue);
+        } catch (err) {
+          approvalError = approvalError || err;
+          this._approvalLogger.error(
+            'createPost applyApprovalLists',
+            (err as Error)?.stack
+          );
+        }
+      }
     }
 
-    return postList;
+    if (!this._approvalGate.enabled()) {
+      return postList;
+    }
+
+    // FORK: approvals - the save worked but the approval step didn't: what was
+    // asked to be scheduled is still a draft, so the caller has to know
+    if (!loopFailed && approvalError) {
+      throw approvalError;
+    }
+
+    // FORK: approvals
+    return postList.map((p) => ({
+      ...p,
+      approvalStage: stageByPostId[p.postId],
+    }));
+  }
+
+  // FORK: approvals. Every post that leaves QUEUE gets its workflows terminated
+  // (startWorkflow with DRAFT) before any post is queued again
+  private async applyApprovalLists(
+    orgId: string,
+    savedAsDraft: string[],
+    toDraft: string[],
+    toQueue: string[]
+  ) {
+    await this._approvalGate.setRootPostsDraft(orgId, toDraft);
+
+    const terminate = [...new Set([...savedAsDraft, ...toDraft])].filter(
+      (id) => !toQueue.includes(id)
+    );
+    for (const id of terminate) {
+      const post = await this._postRepository.getPostById(id, orgId);
+      if (!post) {
+        continue;
+      }
+      await this.startWorkflow(
+        post.integration.providerIdentifier.split('-')[0].toLowerCase(),
+        id,
+        orgId,
+        'DRAFT'
+      );
+    }
+
+    for (const id of toQueue) {
+      const { integration } = await this._postRepository.changeState(
+        id,
+        'QUEUE'
+      );
+      await this.startWorkflow(
+        integration.providerIdentifier.split('-')[0].toLowerCase(),
+        id,
+        orgId,
+        'QUEUE'
+      );
+    }
   }
 
   // Update ONLY the provider settings of a not-yet-published post (scheduled or
@@ -1379,6 +1536,9 @@ export class PostsService {
       throw new BadRequestException('Post not found');
     }
 
+    // FORK: approvals
+    await this._approvalGate.beforeChangePostStatus(orgId, id, status);
+
     const state: State = status === 'draft' ? 'DRAFT' : 'QUEUE';
     await this._postRepository.changeState(id, state);
 
@@ -1399,9 +1559,22 @@ export class PostsService {
     id: string,
     date: string,
     action: 'schedule' | 'update' = 'schedule',
-    republish = false
+    republish = false,
+    // FORK: approvals
+    actorUserId?: string,
+    creationMethod: CreationMethod = 'UNKNOWN'
   ) {
     const getPostById = await this._postRepository.getPostById(id, orgId);
+
+    // FORK: approvals
+    const approval = await this._approvalGate.beforeChangeDate(
+      orgId,
+      id,
+      date,
+      action,
+      republish
+    );
+    action = approval.action;
 
     if (action === 'schedule' && !republish) {
       this.guardAgainstRepublish(getPostById, 'changeDate');
@@ -1428,6 +1601,19 @@ export class PostsService {
           getPostById.state === 'DRAFT' ? 'DRAFT' : 'QUEUE'
         );
       } catch (err) {}
+    }
+
+    // FORK: approvals - the date is already saved, so a failure here is logged
+    try {
+      await this.applyApprovalLists(orgId, [], approval.toDraft, []);
+      await this._approvalGate.afterChangeDate(
+        orgId,
+        id,
+        actorUserId,
+        creationMethod
+      );
+    } catch (err) {
+      this._approvalLogger.error(`changeDate ${id}`, (err as Error)?.stack);
     }
 
     return newDate;

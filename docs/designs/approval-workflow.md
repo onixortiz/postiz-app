@@ -518,7 +518,7 @@ calendario mueve un solo canal, los demás siguen vencidos.
 | `APPROVED` | Solo cambio de fecha a una fecha futura | Cualquiera | `APPROVED` | Se registra `DATE_CHANGED`. Una fecha pasada se rechaza. |
 | `IN_PRODUCTION`, `CHANGES_REQUESTED`, `IN_REVIEW`, `AWAITING_FINAL` | Pasa `earliestPublishDate` | Sistema | (sin cambio de etapa) | Se registra `EXPIRED`, se avisa y se marca `warnedExpiredAt`. |
 | `IN_PRODUCTION`, `CHANGES_REQUESTED`, `IN_REVIEW`, `AWAITING_FINAL`, vencido | Cambio de fecha a una fecha futura | Cualquiera | (sin cambio de etapa) | Se recalcula `earliestPublishDate`. Si todos los posts raíz quedaron en el futuro, deja de estar vencido y se borran las marcas de aviso. |
-| `APPROVED` | Borrar un canal en `ERROR` o en pausa (`deletePost` desde el calendario) | Cualquiera | `APPROVED` | `beforeDeletePost` registra `CHANNEL_DISCARDED` con el actor. **No reinicia el lote**, porque ese canal no se publicó y los demás no cambian. |
+| `APPROVED` | Borrar un canal en `ERROR`, en pausa o ya en `PUBLISHED` (`deletePost` desde el calendario) | Cualquiera | `APPROVED` | `afterDeletePost` registra `CHANNEL_DISCARDED` con el actor. **No reinicia el lote**, porque lo que publican los demás canales no cambia. Lo mismo cuando se borra el último canal del lote. |
 | `IN_REVIEW`, `AWAITING_FINAL`, `APPROVED` | Borrar cualquier otro canal del lote (`deletePost`) | Cualquiera | `IN_REVIEW` | Cuenta como cambio de contenido: se registra `CONTENT_EDITED` y `RESET_BY_EDIT`, y se terminan los workflows de los demás canales. |
 | `APPROVED` | Todos los posts raíz que quedan están en `PUBLISHED` | Sistema | `PUBLISHED` | `verifyDueAt = ahora + 24 h`. Se avisa al Writer. Mientras quede un canal en `ERROR` o en pausa, el lote sigue en `APPROVED` y ese canal se puede reintentar o descartar. |
 | `PUBLISHED` | Verificar | Technical Writer | `VERIFIED` | |
@@ -577,7 +577,17 @@ ningún camino del flujo:
         `libraries/helpers/src/utils/is.allowed.media.path.ts` y `PostsService`
         la importa desde ahí (cambio registrado en `FORK_TOUCHPOINTS.md`);
     *   `alt` y `thumbnail` vacíos cuentan como el valor propio "ausente", y
-        nunca se completan con la fila de `Media`.
+        nunca se completan con la fila de `Media`. En un archivo de la
+        biblioteca, un `alt` o `thumbnail` igual al de su fila de `Media`
+        también cuenta como ausente: `updateMedia` reemplaza un archivo con
+        `id` y sin `path` por la fila completa;
+    *   el prefijo `UPLOAD_DIRECTORY` se quita tantas veces como aparezca,
+        porque cada reescritura de `updateMedia` lo vuelve a anteponer.
+    *   **Límite conocido:** con `convertToJPEG`, `updateMedia` vuelve a subir
+        al publicar los PNG que no están en la biblioteca y guarda la ruta
+        nueva. Si esa publicación falla, el reintento de ese canal necesita
+        una aprobación nueva. Los archivos de la biblioteca no tienen este
+        problema, porque su huella usa el `id`.
 *   **Valores por defecto:** `delay` ausente vale 0; en `settings` se quitan las
     claves con `undefined`, `null`, `''` o `[]`, y la clave `__type`.
 *   **No entra:** `url`, `type` y `name` de la media, `publishDate`, `state`,
@@ -1630,7 +1640,8 @@ ese archivo se crea.
             `evaluatePublish` no lo permite;
         *   cuando devuelve `false`, inserta `BLOCKED_AT_PUBLISH` con el
             `reason` de `evaluatePublish` y suma `approval_blocked_at_publish`
-            (en todos los casos, no solo con `fingerprint_drift`).
+            (en todos los casos, no solo con `fingerprint_drift`). Si el post
+            no está en `QUEUE`, el `reason` es `'not_queued'`.
     *   `typeForSave(orgId, body)`:
         *   los canales con fecha pasada que no están en `PUBLISHED` y piden
             `schedule` se guardan como `draft` (en vez de rechazar toda la
@@ -1901,13 +1912,21 @@ ese archivo se crea.
             el error original, se llama a `afterSave(orgId, savedRootIds,
             body.type, actorUserId, creationMethod)`. Después, en orden y con
             `await`:
-            1.  para cada post raíz guardado o en `toDraft`, que no esté en
-                `toQueue`: `setRootPostsDraft` (solo si está en `toDraft`) y
-                `startWorkflow(provider, id, orgId, 'DRAFT')`, que termina sus
-                workflows;
+            1.  para cada post raíz guardado como `draft` o en `toDraft`, que
+                no esté en `toQueue`: `setRootPostsDraft` (solo si está en
+                `toDraft`) y `startWorkflow(provider, id, orgId, 'DRAFT')`, que
+                termina sus workflows. Los canales guardados con `update` no
+                pasan por aquí, igual que en upstream, para no terminar el
+                workflow de un post en `QUEUE` que no cambió;
             2.  para cada `postId` de `toQueue`:
                 `const { integration } = await this._postRepository.changeState(postId, 'QUEUE')`
                 y `startWorkflow(integration.providerIdentifier.split('-')[0].toLowerCase(), postId, orgId, 'QUEUE')`;
+        *   **Implementado:** si el bucle terminó bien pero `afterSave` o el
+            procesamiento de las listas fallan, el error se registra en el log
+            y se relanza: lo pedido como `schedule` quedó en `DRAFT`, y quien
+            llamó tiene que saberlo. Si el bucle ya había fallado, se relanza
+            el error del bucle. En `changeDate`, los errores posteriores a
+            guardar la fecha solo se registran en el log;
         *   el `return postList` se mueve después del `finally`, y cada elemento
             agrega `approvalStage: stageByPostId[postId]`. Consumidores de la
             respuesta, revisados contra upstream: `posts.controller.ts:248`,
@@ -1928,6 +1947,11 @@ ese archivo se crea.
         procesa `toDraft` igual que `createPost`.
     7.  **`checkInternalPlug` y `checkPlugs`:** al inicio,
         `if (!this._approvalGate.plugsEnabled()) return [];`.
+    *   **Implementado (fase 2):** `PostsService` llama a `setRootPostsDraft`
+        a través de `ApprovalGateService.setRootPostsDraft`, para no inyectar
+        un repositorio ajeno. `changeDate` y `deletePost` reciben
+        `creationMethod` con valor por defecto `'UNKNOWN'` hasta que la fase 3
+        actualice los llamadores (archivos 16 y 17).
     8.  **Llamadores:** `posts.controller.ts` pasa `user.id` y `'WEB'` (en
         `createPost`, con `keepGroup = false` explícito);
         `public.integrations.controller.ts:240, 249 y 558` pasan `undefined` y
@@ -2513,8 +2537,10 @@ observa.
             conservan, y un canal en `PUBLISHED` pasa a `update`;
         *   `republish: true` sobre un canal en `PUBLISHED` lanza `400`, y se
             ignora en los demás;
-        *   `schedule` con fecha pasada lanza `400`, salvo en `PUBLISHED`;
         *   `inter` sale `undefined`.
+        *   **Implementado:** `schedule` con fecha pasada no lanza `400` en
+            `typeForSave`. El canal se guarda como `draft` y `afterSave`
+            registra `BLOCKED` con `reason: 'past_date'` (ver archivo 4).
     *   **`afterSave`:**
         *   crea `PostApproval` con `CREATED` (actor, rol y huellas) en el
             primer guardado;
@@ -2676,6 +2702,16 @@ observa.
     *   un `Test.createTestingModule` base con los servicios del fork que existan
         en la fase actual y `PostsService` con su `PostsRepository` real. El
         helper crece en cada fase.
+    *   **Implementado (fase 2):** la base de prueba se toma de
+        `FORK_TEST_DATABASE_URL` (por defecto
+        `postgresql://postgres:test@127.0.0.1:5440/postiz_fork_test`) y las
+        pruebas se niegan a correr si el nombre de la base no contiene `test`.
+        Un `globalSetup` ejecuta `prisma db push` una vez por corrida, y las
+        pruebas corren en serie (`maxWorkers: 1`). `jest.fork.config.ts`
+        reemplaza, solo en las pruebas, `IntegrationManager`, `UploadFactory`,
+        `file-type` e `isomorphic-dompurify` por stubs en
+        `approvals/test/stubs/`: cargan paquetes solo ESM que Jest no puede
+        leer, y las pruebas del fork no publican ni guardan archivos.
 
 ### Verification Plan
 
