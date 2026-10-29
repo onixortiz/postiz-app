@@ -95,11 +95,11 @@ export const RepeatComponent: FC<{
               <div
                 className={clsx(
                   'w-[24px] h-[24px] rounded-full border-[1.5px] flex justify-center items-center',
-                  selected ? 'border-[#FC69FF]' : 'border-newTextColor/20'
+                  selected ? 'border-[#FF6C2F]' : 'border-newTextColor/20'
                 )}
               >
                 {selected && (
-                  <div className="w-[12px] h-[12px] rounded-full bg-[#FC69FF]" />
+                  <div className="w-[12px] h-[12px] rounded-full bg-[#FF6C2F]" />
                 )}
               </div>
             </div>
@@ -114,7 +114,7 @@ export const RepeatComponent: FC<{
       ref={ref}
       className={clsx(
         'border rounded-[8px] justify-center flex items-center relative h-[44px] text-[15px] font-[600] select-none',
-        isOpen ? 'border-[#612BD3]' : 'border-newTextColor/10',
+        isOpen ? 'border-[#001489]' : 'border-newTextColor/10',
       )}
     >
       <div

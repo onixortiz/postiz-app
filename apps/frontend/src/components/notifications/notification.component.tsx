@@ -113,7 +113,7 @@ export const NotificationOpenComponent = () => {
         )}
         {!isLoading && !notifications.length && (
           <div className="flex flex-col items-center justify-center gap-[12px] py-[40px] px-[16px] text-center">
-            <div className="w-[48px] h-[48px] rounded-full bg-[#612bd3]/10 flex items-center justify-center text-[#612bd3]">
+            <div className="w-[48px] h-[48px] rounded-full bg-[#001489]/10 flex items-center justify-center text-[#001489]">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="24"

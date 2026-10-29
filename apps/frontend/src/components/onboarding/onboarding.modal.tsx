@@ -392,7 +392,7 @@ const OnboardingStep2: FC<{ onBack: () => void; onNext: () => void }> = ({
           </div>
         </div>
         <a
-          className="cursor-pointer px-[24px] h-[44px] bg-[#612BD3] hover:bg-[#5520CB] text-white transition-colors rounded-[8px] text-[14px] font-[600] flex items-center gap-[8px] shrink-0"
+          className="cursor-pointer px-[24px] h-[44px] bg-[#001489] hover:bg-[#5520CB] text-white transition-colors rounded-[8px] text-[14px] font-[600] flex items-center gap-[8px] shrink-0"
           href="https://docs.postiz.com/public-api/introduction"
           target="_blank"
         >
@@ -451,7 +451,7 @@ const OnboardingStep2: FC<{ onBack: () => void; onNext: () => void }> = ({
         </div>
       </div>
       <a
-        className="cursor-pointer px-[24px] h-[44px] bg-[#612BD3] hover:bg-[#5520CB] text-white transition-colors rounded-[8px] text-[14px] font-[600] flex items-center gap-[8px] shrink-0"
+        className="cursor-pointer px-[24px] h-[44px] bg-[#001489] hover:bg-[#5520CB] text-white transition-colors rounded-[8px] text-[14px] font-[600] flex items-center gap-[8px] shrink-0"
         href={connector.href}
         target="_blank"
       >
@@ -485,7 +485,7 @@ const OnboardingStep2: FC<{ onBack: () => void; onNext: () => void }> = ({
                 className={clsx(
                   'cursor-pointer px-[14px] h-[36px] text-[13px] font-[500] rounded-[8px] transition-colors',
                   auth === m
-                    ? 'bg-[#612BD3] text-white'
+                    ? 'bg-[#001489] text-white'
                     : 'bg-btnSimple text-customColor18 hover:bg-boxHover hover:text-textColor'
                 )}
                 onClick={() => setAuth(m)}
@@ -575,7 +575,7 @@ const OnboardingStep2: FC<{ onBack: () => void; onNext: () => void }> = ({
                 className={clsx(
                   'cursor-pointer px-[14px] h-[36px] text-[13px] font-[500] rounded-[8px] transition-colors flex items-center gap-[8px]',
                   tab === item
-                    ? 'bg-[#612BD3] text-white'
+                    ? 'bg-[#001489] text-white'
                     : item === apiTab
                     ? 'bg-btnSimple text-[#a78bfa] hover:bg-boxHover hover:text-[#c4b5fd]'
                     : 'bg-btnSimple text-customColor18 hover:bg-boxHover hover:text-textColor'
@@ -596,7 +596,7 @@ const OnboardingStep2: FC<{ onBack: () => void; onNext: () => void }> = ({
                   className={clsx(
                     'cursor-pointer px-[12px] h-[32px] text-[12px] font-[500] rounded-[8px] transition-colors flex items-center gap-[6px]',
                     otherAgent === item
-                      ? 'bg-[#612BD3] text-white'
+                      ? 'bg-[#001489] text-white'
                       : 'bg-btnSimple text-customColor18 hover:bg-boxHover hover:text-textColor'
                   )}
                   onClick={() => setOtherAgent(item)}

@@ -6,7 +6,7 @@ import { BriefsComponent } from '@gitroom/frontend/components/briefs/briefs.comp
 
 // FORK: approvals
 export const metadata: Metadata = {
-  title: `${isGeneralServerSide() ? 'Postiz' : 'Gitroom'} Briefs`,
+  title: `${isGeneralServerSide() ? 'Alpine Socials' : 'Gitroom'} Briefs`,
   description: '',
 };
 

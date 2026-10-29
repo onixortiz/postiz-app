@@ -458,13 +458,13 @@ export const Filters = () => {
           className={clsx(
             'hidden mobile:flex mobile:order-2 relative w-[42px] h-[42px] rounded-[8px] border justify-center items-center cursor-pointer',
             calendar.selectedChannels
-              ? 'border-[#612BD3] text-[#612BD3]'
+              ? 'border-[#001489] text-[#001489]'
               : 'border-newTableBorder'
           )}
         >
           <FilterIcon />
           {calendar.selectedChannels && (
-            <div className="absolute top-[6px] end-[6px] w-[6px] h-[6px] rounded-full bg-[#612BD3]" />
+            <div className="absolute top-[6px] end-[6px] w-[6px] h-[6px] rounded-full bg-[#001489]" />
           )}
         </div>
       )}

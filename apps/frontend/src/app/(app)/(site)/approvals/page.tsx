@@ -6,7 +6,7 @@ import { ApprovalsInboxComponent } from '@gitroom/frontend/components/approvals/
 
 // FORK: approvals
 export const metadata: Metadata = {
-  title: `${isGeneralServerSide() ? 'Postiz' : 'Gitroom'} Approvals`,
+  title: `${isGeneralServerSide() ? 'Alpine Socials' : 'Gitroom'} Approvals`,
   description: '',
 };
 

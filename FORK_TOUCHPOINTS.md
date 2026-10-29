@@ -49,6 +49,19 @@ behaves as upstream, except the rows marked **always**.
 | `var/docker/docker-build.sh` | Build and push of `FORK_IMAGE` | Deployment | — |
 | `.env.example` | Fork variables | Deployment | — |
 
+### Brand (Alpine Socials)
+
+The brand is not behind a flag: it applies always.
+
+| File | What changed | What to check when upstream changes it |
+|---|---|---|
+| `apps/frontend/public/alpine-*.svg`, `favicon.ico`, `favicon.png` | Alpine logos and favicon (the originals are outside the repo) | Upstream replacing `favicon.*` brings back the Postiz icon |
+| `apps/frontend/src/components/new-layout/logo.tsx`, `components/ui/logo-text.component.tsx` | The Alpine symbol and wordmark instead of the Postiz SVGs | — |
+| `apps/frontend/src/app/(app)/auth/layout.tsx` | Alpine logo and tagline instead of the Postiz testimonials | — |
+| `apps/frontend/src/app/(app)/(preview)/p/[id]/page.tsx` | Alpine logo in the preview header | — |
+| `apps/frontend/src/app/colors.scss` and every file with a brand color | Purple `#612bd3`/`#612ad5` → blue `#001489`, pink `#fc69ff`/`#d82d7e` → orange `#FF6C2F`, other purples to blue tones | After a merge, `grep -rniE "#612bd3\|#612ad5\|#fc69ff\|#d82d7e" apps/frontend/src` must find nothing |
+| Page titles (`'Postiz' : 'Gitroom'`), `logout.component.tsx`, en/es `translation.json` | "Postiz" → "Alpine Socials". The names of Postiz's own products (n8n node, CLI, connector, HubSpot and Farcaster apps) stay | `grep -rn "'Postiz' : 'Gitroom'" apps/frontend/src` must find nothing |
+
 ### Rules copied from upstream
 
 These are not calls, they are copies of upstream logic. When upstream changes

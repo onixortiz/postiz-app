@@ -25,7 +25,7 @@ export const AppsComponent: FC<{ canManageApps: boolean }> = ({
               className={clsx(
                 'cursor-pointer px-[20px] h-[44px] text-[15px] font-[600] rounded-[8px] transition-colors',
                 current === tab
-                  ? 'bg-[#612BD3] text-white'
+                  ? 'bg-[#001489] text-white'
                   : 'bg-btnSimple text-customColor18 hover:bg-boxHover hover:text-textColor'
               )}
               onClick={() => setSubTab(tab)}
