@@ -378,7 +378,7 @@ export const CalendarWeekProvider: FC<{
   const comments = useMemo(() => calendarData?.comments || [], [calendarData?.comments]);
 
   // FORK: approvals - one request for the stages of every visible post
-  const { data: stagesByPostId } = useApprovalStages([
+  const { data: stagesByPostId, mutate: mutateStages } = useApprovalStages([
     ...posts.map((p: Post) => p.id),
     ...(listData?.posts || []).map((p: Post) => p.id),
   ]);
@@ -435,7 +435,9 @@ export const CalendarWeekProvider: FC<{
   const reloadCalendarView = useCallback(() => {
     mutateCalendar();
     mutateList();
-  }, [mutateCalendar, mutateList]);
+    // FORK: approvals - a save keeps the post ids, so the stages key stays
+    mutateStages();
+  }, [mutateCalendar, mutateList, mutateStages]);
 
   // Determine loading state based on current view
   const loading = filters.display === 'list' ? listIsLoading : calendarIsLoading;

@@ -916,6 +916,8 @@ export class ApprovalsRepository {
             action,
             targetUserId: userId,
             targetRole: role,
+            // roles only change from Settings > Team
+            surface: 'WEB' as const,
           })),
         });
       }

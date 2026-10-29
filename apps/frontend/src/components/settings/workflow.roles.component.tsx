@@ -98,9 +98,12 @@ export const WorkflowRolesComponent: FC = () => {
               >
                 <td className="px-[16px] py-[10px]">
                   <div>{member.name}</div>
-                  <div className="text-[12px] text-textItemBlur">
-                    {member.email}
-                  </div>
+                  {/* the name falls back to the email */}
+                  {member.name !== member.email && (
+                    <div className="text-[12px] text-textItemBlur">
+                      {member.email}
+                    </div>
+                  )}
                 </td>
                 {ROLES.map((role) => (
                   <td key={role} className="text-center px-[12px] py-[10px]">

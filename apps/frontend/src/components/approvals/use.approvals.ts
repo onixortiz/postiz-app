@@ -211,12 +211,18 @@ export const useApprovalActions = () => {
           { version, comment },
           batchId
         ),
+      // several batches in one request, so each one is revalidated here
       finalApprove: (items: { batchId: string; version: number }[]) =>
         send<{ batchId: string; ok: boolean; error?: string }[]>(
           '/approvals/final-approve',
           'POST',
           { items }
-        ),
+        ).then(async (result) => {
+          await Promise.all(
+            items.map((p) => mutate(`/approvals/batch/${p.batchId}`))
+          );
+          return result;
+        }),
       force: (batchId: string, version: number, reason: string) =>
         send(
           `/approvals/batch/${batchId}/force`,
