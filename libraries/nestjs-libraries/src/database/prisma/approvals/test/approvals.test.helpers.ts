@@ -24,6 +24,7 @@ import { ApprovalNotifyService } from '@gitroom/nestjs-libraries/database/prisma
 import { ApprovalGateService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.gate.service';
 import { ApprovalService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.service';
 import { BriefsService } from '@gitroom/nestjs-libraries/database/prisma/approvals/briefs.service';
+import { ApprovalSweepService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.sweep.service';
 import { CreatePostDto } from '@gitroom/nestjs-libraries/dtos/posts/create.post.dto';
 
 // FORK: approvals. Shared setup for the fork tests: real Postgres, real
@@ -165,6 +166,7 @@ export const createApprovalsTestModule =
         ApprovalGateService,
         ApprovalService,
         BriefsService,
+        ApprovalSweepService,
         { provide: NotificationService, useValue: notifications.service },
         { provide: TemporalService, useValue: temporal.service },
         { provide: IntegrationManager, useValue: mock<IntegrationManager>() },

@@ -57,6 +57,7 @@ import { ApprovalPolicyService } from '@gitroom/nestjs-libraries/database/prisma
 import { ApprovalGateService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.gate.service';
 import { ApprovalService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.service';
 import { BriefsService } from '@gitroom/nestjs-libraries/database/prisma/approvals/briefs.service';
+import { ApprovalSweepService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.sweep.service';
 
 @Global()
 @Module({
@@ -123,6 +124,7 @@ import { BriefsService } from '@gitroom/nestjs-libraries/database/prisma/approva
     ApprovalGateService,
     ApprovalService,
     BriefsService,
+    ApprovalSweepService,
   ],
   get exports() {
     return this.providers;

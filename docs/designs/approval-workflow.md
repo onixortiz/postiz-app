@@ -1883,6 +1883,30 @@ ese archivo se crea.
         huellas de referencia no tiene un post raíz no borrado y no hay un
         `CHANNEL_DISCARDED` para él.
     *   Suma `approval_expired` en el paso 1 y `approval_reconciled` en 5b.
+*   **Implementado (fase 4):**
+    *   La conciliación corre 5d antes que 5a, 5b y 5c: un lote guardado con el
+        fork apagado se adopta (`CREATED` por `SYSTEM`) antes de que 5b tome
+        sus posts en `QUEUE` como no aprobados.
+    *   5d solo adopta lotes con posts raíz en `QUEUE`, o en `ERROR` con fecha
+        de los últimos 30 días. Un borrador recibe su `PostApproval` al
+        guardarse. `listOrgIdsToSweep` usa el mismo límite para `ERROR`, así
+        la tarea no recorre años de historial.
+    *   Cada paso que pasa un post a `DRAFT` lo "reclama" primero con
+        `claimDraft` (un `updateMany` condicionado al estado actual). Solo quien
+        lo movió escribe el evento y envía el aviso, así que dos tareas al mismo
+        tiempo (por ejemplo, la conciliación de arranque y el primer paso del
+        workflow) no duplican nada. En 5a, el post se mueve antes de avisar.
+    *   `CHANNEL_DISCARDED` guarda el canal en `snapshot.integrationId`, no en
+        `reason`, para no mezclarlo con los motivos que muestra el historial.
+    *   Cuando 5a devuelve un lote `APPROVED` a `IN_REVIEW`, avisa a los
+        Reviewer con la plantilla `RESET_BY_EDIT`, igual que una edición.
+    *   El workflow atrapa el error de una actividad que agotó sus reintentos y
+        espera la vuelta siguiente, en lugar de terminar. El tiempo máximo de la
+        actividad es 10 minutos, como en `missingPostWorkflow`.
+    *   La conciliación de arranque solo corre en la réplica con `RUN_CRON`.
+    *   **Mejora futura:** 5a, 5b y 5e evalúan cada post con varias consultas.
+        Con muchos posts conviene cargar aprobaciones y posts raíz una vez por
+        organización y comparar en memoria.
 *   **Por qué**: ejecuta lo que depende del tiempo (vencimientos, avisos,
     confirmación de la publicación) y devuelve a `DRAFT` los posts bloqueados.
 

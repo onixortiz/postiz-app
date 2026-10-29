@@ -9,6 +9,7 @@ import {
   BriefStatus,
   Prisma,
   Role,
+  State,
   WorkflowRole,
 } from '@prisma/client';
 import { StagesMap } from '@gitroom/nestjs-libraries/dtos/approvals/approval.actions.dto';
@@ -29,6 +30,9 @@ export type ApprovalUpdate = Omit<
 >;
 
 // stages before the final approval: the batch can't be published from them
+// errors older than this are history: the sweep leaves them alone
+const recentErrorsSince = () => dayjs.utc().subtract(30, 'day').toDate();
+
 const PRE_APPROVAL_STAGES: ApprovalStage[] = [
   'IN_PRODUCTION',
   'IN_REVIEW',
@@ -528,6 +532,23 @@ export class ApprovalsRepository {
     );
   }
 
+  // only the sweep that moves the post acts on it, so two sweeps at the same
+  // time don't record or notify twice
+  async claimDraft(orgId: string, postId: string, from: State) {
+    const { count } = await this._post.model.post.updateMany({
+      where: {
+        organizationId: orgId,
+        id: postId,
+        state: from,
+        deletedAt: null,
+      },
+      data: {
+        state: 'DRAFT',
+      },
+    });
+    return count > 0;
+  }
+
   getPostForGate(orgId: string, postId: string) {
     return this._post.model.post.findFirst({
       where: {
@@ -1008,9 +1029,10 @@ export class ApprovalsRepository {
         where: {
           parentPostId: null,
           deletedAt: null,
-          state: {
-            in: ['QUEUE', 'ERROR'],
-          },
+          OR: [
+            { state: 'QUEUE' },
+            { state: 'ERROR', publishDate: { gte: recentErrorsSince() } },
+          ],
         },
       }),
     ]);
@@ -1081,6 +1103,63 @@ export class ApprovalsRepository {
       const list = posts.filter((p) => p.batchId === approval.batchId);
       return list.length && list.every((p) => p.state === 'PUBLISHED');
     });
+  }
+
+  // sets a warning mark only if it is still empty, so two sweeps running at
+  // the same time send the notice once
+  async markWarned(
+    orgId: string,
+    id: string,
+    field: 'warned48At' | 'warned24At' | 'warnedExpiredAt' | 'warnedVerifyAt',
+    now: Date,
+    alsoSet: ('warned48At' | 'warned24At')[] = []
+  ) {
+    const { count } = await this._postApproval.model.postApproval.updateMany({
+      where: {
+        id,
+        organizationId: orgId,
+        [field]: null,
+      },
+      data: {
+        [field]: now,
+        ...alsoSet.reduce((all, key) => ({ ...all, [key]: now }), {}),
+      },
+    });
+    return count > 0;
+  }
+
+  listApprovals(orgId: string, stages: ApprovalStage[]) {
+    return this._postApproval.model.postApproval.findMany({
+      where: {
+        organizationId: orgId,
+        stage: {
+          in: stages,
+        },
+      },
+    });
+  }
+
+  // the integrations whose CHANNEL_DISCARDED is already recorded
+  async discardedIntegrations(orgId: string, approvalId: string) {
+    const events =
+      await this._postApprovalEvent.model.postApprovalEvent.findMany({
+        where: {
+          organizationId: orgId,
+          approvalId,
+          action: 'CHANNEL_DISCARDED',
+        },
+        select: {
+          snapshot: true,
+        },
+      });
+    return new Set(
+      events
+        .map(
+          (p) =>
+            (p.snapshot as { integrationId?: string } | null)?.integrationId
+        )
+        .filter((p): p is string => !!p)
+    );
   }
 
   findVerificationOverdue(orgId: string, now: Date) {
@@ -1182,9 +1261,11 @@ export class ApprovalsRepository {
         batchId: {
           not: null,
         },
-        state: {
-          not: 'PUBLISHED',
-        },
+        // a draft gets its approval when it is saved again
+        OR: [
+          { state: 'QUEUE' },
+          { state: 'ERROR', publishDate: { gte: recentErrorsSince() } },
+        ],
       },
     });
 

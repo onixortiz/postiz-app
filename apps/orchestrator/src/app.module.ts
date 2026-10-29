@@ -10,6 +10,8 @@ import { MediaActivity } from '@gitroom/orchestrator/activities/media.activity';
 import { ClippingActivity } from '@gitroom/orchestrator/activities/clipping.activity';
 import { VideoModule } from '@gitroom/nestjs-libraries/videos/video.module';
 import { HealthController } from '@gitroom/orchestrator/health.controller';
+// FORK: approvals
+import { ApprovalActivity } from '@gitroom/orchestrator/activities/approval.activity';
 
 const activities = [
   PostActivity,
@@ -19,6 +21,8 @@ const activities = [
   VideoActivity,
   MediaActivity,
   ClippingActivity,
+  // FORK: approvals
+  ApprovalActivity,
 ];
 @Module({
   imports: [

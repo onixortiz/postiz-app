@@ -803,6 +803,8 @@ export class ApprovalGateService {
         ),
         action: 'CHANNEL_DISCARDED',
         surface,
+        // the channel, so the sweep knows this one was already recorded
+        snapshot: { integrationId: root.integrationId },
       });
       return { toDraft: [] };
     }
