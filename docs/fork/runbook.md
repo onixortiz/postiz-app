@@ -27,6 +27,11 @@ lista de archivos de upstream que cambia el fork, en
 
 ## Instalación en el VPS
 
+Para la máquina gratis de Oracle Cloud con Tailscale Funnel, que construye
+la imagen en la propia máquina, sigue
+[deploy/oracle/README.md](../../deploy/oracle/README.md) en lugar de esta
+sección.
+
 ### 1. Imagen
 
 El `docker-compose.yaml` del fork no usa la imagen de upstream, sino la del
