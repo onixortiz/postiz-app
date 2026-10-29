@@ -22,6 +22,22 @@ export class ApprovalsEnabledGuard implements CanActivate {
   }
 }
 
+// With DISABLE_REGISTRATION (invite-only install) only an admin of the
+// organization invites or removes members. Without Stripe the policies guard
+// allows every section, so any member could otherwise do it.
+export const assertOrgAdminWhenInviteOnly = (org: {
+  users?: { role: string }[];
+}) => {
+  if (
+    process.env.DISABLE_REGISTRATION === 'true' &&
+    !['ADMIN', 'SUPERADMIN'].includes(org?.users?.[0]?.role || '')
+  ) {
+    throw new ForbiddenException(
+      'Solo un administrador puede invitar o quitar miembros'
+    );
+  }
+};
+
 // the same condition auth.middleware.ts uses to switch to the impersonated
 // user: no workflow action can be taken in someone else's name
 export const assertNotImpersonating = (req: Request) => {

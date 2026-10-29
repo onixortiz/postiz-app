@@ -51,14 +51,16 @@ export class AuthService {
         }
 
         // FORK: approvals - with DISABLE_REGISTRATION, a valid invitation
-        // (the org cookie) still signs up, but only into the first
-        // organization: every member also owns an empty organization of
-        // their own, where they could invite anyone
+        // (the org cookie) still signs up, but only into the team
+        // organization (INVITE_ORG_ID, or else the first one): every member
+        // also owns an empty organization of their own, where they could
+        // invite anyone
         const invited =
           !!addToOrg &&
           typeof addToOrg !== 'boolean' &&
           addToOrg.orgId ===
-            (await this._organizationService.getFirstOrgId())?.id;
+            (process.env.INVITE_ORG_ID ||
+              (await this._organizationService.getFirstOrgId())?.id);
         if (!invited && !(await this.canRegister(provider))) {
           throw new Error('Registration is disabled');
         }

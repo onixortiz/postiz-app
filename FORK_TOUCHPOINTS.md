@@ -27,6 +27,7 @@ behaves as upstream, except the rows marked **always**.
 | `apps/backend/src/api/api.module.ts` | `ApprovalsController`, `BriefsController`, `ApprovalsEnabledGuard` | The API of the flow | — |
 | `apps/backend/src/api/routes/posts.controller.ts` | `createPost`, `changeDate`, `deletePost` pass the user; comments pass the org | The actor for the history | **always:** commenting checks the post belongs to the organization |
 | `apps/backend/src/api/routes/public.controller.ts` | `assertPreviewIsPublic` on `/public/posts/:id` and its comments | The preview needs a session | — |
+| `apps/backend/src/api/routes/settings.controller.ts` | `inviteTeamMember`, `deleteTeamMember` call `assertOrgAdminWhenInviteOnly` | With `DISABLE_REGISTRATION`, only an organization admin invites or removes members (without Stripe the policies guard allows everyone) | — |
 | `apps/backend/src/api/routes/integrations.controller.ts` | `assertPlugsEnabled` on the plug routes | Plugs publish without approval | — |
 | `apps/backend/src/public-api/routes/v1/public.integrations.controller.ts` | `deletePost` passes `'API'` | Surface for the history | — |
 | `libraries/nestjs-libraries/src/chat/tools/delete.post.tool.ts` | `deletePost` passes `'MCP'` | Surface for the history | — |
@@ -34,7 +35,7 @@ behaves as upstream, except the rows marked **always**.
 | `apps/frontend/src/app/(app)/layout.tsx` | `approvalsEnabled` and `inviteOnly` props | Frontend flags | — |
 | `apps/frontend/src/components/auth/login.tsx`, `register.tsx` | With `inviteOnly` (`DISABLE_REGISTRATION=true`): no Google or other providers, no "Sign Up" link | Only the team's accounts sign in, with email and password | New login providers must stay inside the `!inviteOnly` guards |
 | `apps/frontend/src/app/(app)/auth/page.tsx` | With `DISABLE_REGISTRATION`, the `org` cookie (an invitation) still shows the form | Only an admin's invitation signs up | — |
-| `apps/backend/src/services/auth/auth.service.ts` | `routeAuth`: a valid invitation to the first organization skips `canRegister` | Same. Every member also owns an empty organization where they could invite anyone, so only the first one counts | `getOrgFromCookie` still checks the signature and `timeLimit` of the invitation |
+| `apps/backend/src/services/auth/auth.service.ts` | `routeAuth`: a valid invitation to the team organization (`INVITE_ORG_ID`, or else the first one) skips `canRegister` | Same. Every member also owns an empty organization where they could invite anyone, so only the first one counts | `getOrgFromCookie` still checks the signature and `timeLimit` of the invitation |
 | `apps/frontend/src/components/new-launch/manage.modal.tsx` | `schedule` (type by stage, no questions), buttons, `ApprovalPanel` | The editor shows the flow and never promises a publication that won't happen | The save loop, the `saveAs` questions and the republish dialog are still where the `!approvalsEnabled &&` guards sit |
 | `apps/frontend/src/components/new-launch/store.ts` | `briefId`, `setBriefId` | Post created from a topic | `reset()` still restores `initialState` |
 | `apps/frontend/src/components/launches/calendar.tsx` | Drop without the republish dialog, rollback toast, stage badge, `usePostActions` exported | Calendar | The drop handler still calls `PUT /posts/:id/date` |
