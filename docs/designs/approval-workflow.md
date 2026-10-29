@@ -2572,6 +2572,10 @@ ese archivo se crea.
     de `updateMedia` dentro de `fingerprintsFromDb`, `isAllowedMediaPath`
     (movida al archivo 2b) y la condición de suplantación.
 
+*   **Implementado (fase 6):** `FORK_TOUCHPOINTS.md` está en inglés, como el
+    código y `CLAUDE.md`, porque es para quien actualiza el fork. El runbook
+    está en español, porque es para el equipo que opera la plataforma.
+
 ##### 51. `docs/fork/runbook.md` (Create)
 
 *   **Cambios propuestos**:
@@ -2586,6 +2590,16 @@ ese archivo se crea.
         `--accept-data-loss` después de respaldar la base;
     *   la obligación de la licencia AGPL: publicar el código fuente del fork
         para quien use la plataforma por la red.
+*   **Implementado (fase 6):**
+    *   `docker-compose.yaml` usa `${FORK_IMAGE:?...}`: sin la variable,
+        `docker compose` se niega a arrancar en lugar de usar en silencio la
+        imagen de upstream, que no tiene la cadena de aprobación.
+    *   `fork-checks.yml` corre en cada PR y también a mano
+        (`workflow_dispatch`). Sus pasos se ejecutaron en local, en el mismo
+        orden, y pasaron. No se ha ejecutado todavía en GitHub Actions.
+    *   Los puertos de Temporal se comprobaron con `docker compose config`
+        (`host_ip: 127.0.0.1` en 7233 y 8080). La prueba desde otra máquina es
+        el paso 7 del Verification Plan, en el VPS.
 
 #### G. Pruebas
 

@@ -1,0 +1,75 @@
+---
+# FORK: approvals. The checks of the fork: the schema stays additive against
+# upstream, lint and tests of the fork files, and the build.
+name: Fork checks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  fork-checks:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: postiz_fork_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      FORK_TEST_DATABASE_URL: postgresql://postgres:test@localhost:5432/postiz_fork_test
+      DATABASE_URL: postgresql://postgres:test@localhost:5432/postiz_fork_test
+      NODE_OPTIONS: --max-old-space-size=4096
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10.6.1
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate the Prisma client
+        run: pnpm prisma-generate
+
+      - name: Push the schema to the test database
+        run: pnpm prisma-db-push
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/gitroomhq/postiz-app.git
+          git fetch upstream main
+
+      - name: Schema is additive against upstream
+        run: |
+          git show upstream/main:libraries/nestjs-libraries/src/database/prisma/schema.prisma > /tmp/upstream.prisma
+          node scripts/fork/check-schema-additive.mjs /tmp/upstream.prisma libraries/nestjs-libraries/src/database/prisma/schema.prisma
+
+      - name: Lint the fork files
+        run: pnpm lint:fork
+
+      - name: Build
+        run: pnpm build
+
+      - name: Fork tests
+        run: pnpm test:fork
