@@ -1446,13 +1446,17 @@ ese archivo se crea.
     `organizationId`, y los que leen `User` usan `select` con solo `id`,
     `email`, `name` y `lastName`. El nombre visible es
     `[name, lastName].join(' ') || email`, como en `posts.service.ts:1622-1626`.
+    *   Los métodos que reciben `approvalId` también reciben `orgId` y
+        filtran por él. Para listar valores distintos se usa `groupBy`, no
+        `distinct`: en Prisma 6.5 sin `nativeDistinct`, `distinct` carga todas
+        las filas y quita los duplicados en memoria.
     *   **Aprobaciones y eventos:**
         *   `getApprovalByBatch(orgId, batchId)` y `getApprovalByPost(orgId, postId)`.
         *   `createApproval(orgId, batchId, earliestPublishDate, event)`: crea la
             fila y el evento `CREATED` en una transacción.
-        *   `transition(id, expectedVersion, data, events[]): Promise<boolean>`:
+        *   `transition(orgId, id, expectedVersion, data, events[]): Promise<boolean>`:
             dentro de `this._transaction.model.$transaction(async tx => …)` hace
-            `updateMany({ where: { id, version: expectedVersion }, data: { ...data, version: { increment: 1 } } })`.
+            `updateMany({ where: { id, organizationId, version: expectedVersion }, data: { ...data, version: { increment: 1 } } })`.
             Si `count === 0`, devuelve `false` sin crear eventos. Si no, crea
             los eventos y devuelve `true`.
         *   `insertEvent(event)`, para eventos que no cambian la fila.
@@ -1513,7 +1517,9 @@ ese archivo se crea.
             `error = 'No Post'`.
         *   `findQueueRoots(orgId)`: posts raíz en `QUEUE`.
         *   `findErrorRootsInUnapproved(orgId)`.
-        *   `findBatchesWithoutApproval(orgId)`.
+        *   `findBatchesWithoutApproval(orgId)`: solo lotes con al menos un
+            post raíz no borrado que no esté en `PUBLISHED`. El historial ya
+            publicado no recibe `PostApproval`.
 *   **Por qué**: es el único punto de acceso a las tablas del fork.
 
 ##### 2b. `libraries/helpers/src/utils/is.allowed.media.path.ts` (Create)
@@ -2423,6 +2429,16 @@ ese archivo se crea.
         el `eslint.config.mjs` de la raíz nunca se ejecuta en upstream y puede
         fallar por código ajeno. Antes de la fase 1 se comprueba que el comando
         termina con código 0.
+    *   **Implementado (fase 1):** el `eslint.config.mjs` de la raíz no carga con
+        ESLint 8.57 y `eslint-config-next` 16 (error "Converting circular
+        structure to JSON"). Por eso `lint:fork` usa su propia configuración,
+        `eslint.fork.config.mjs` (archivo 49b), con `ESLINT_USE_FLAT_CONFIG=true`,
+        `--no-error-on-unmatched-pattern` (las rutas de fases futuras aún no
+        existen) y `--max-warnings 0`. Aplica las mismas reglas apagadas que la
+        raíz más `react-hooks/rules-of-hooks`.
+    *   `pnpm build` necesita `NODE_OPTIONS=--max-old-space-size=4096`, como
+        `Dockerfile.dev`. Con el límite por defecto, el build del backend se
+        queda sin memoria en una máquina de 8 GB.
 
 ##### 50. `FORK_TOUCHPOINTS.md` (Create)
 

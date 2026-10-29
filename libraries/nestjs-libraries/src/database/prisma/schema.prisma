@@ -45,6 +45,10 @@ model Organization {
   webhooks            Webhooks[]
   oauthApp            OAuthApp[]
   oauthAuthorizations OAuthAuthorization[]
+  workflowRoles       WorkflowRoleAssignment[] // FORK
+  contentBriefs       ContentBrief[] // FORK
+  postApprovals       PostApproval[] // FORK
+  postApprovalEvents  PostApprovalEvent[] // FORK
 
   @@index([apiKey])
   @@index([streakSince])
@@ -118,6 +122,13 @@ model User {
   sendFailureEmails     Boolean              @default(true)
   sendStreakEmails      Boolean              @default(true)
   oauthAuthorizations   OAuthAuthorization[]
+  workflowRoles          WorkflowRoleAssignment[] @relation("WorkflowRoleUser") // FORK
+  workflowRolesGranted   WorkflowRoleAssignment[] @relation("WorkflowRoleCreatedBy") // FORK
+  briefsAssigned         ContentBrief[]           @relation("BriefAssignedCreator") // FORK
+  briefsCreated          ContentBrief[]           @relation("BriefCreatedBy") // FORK
+  approvalsVerified      PostApproval[]           @relation("ApprovalVerifiedBy") // FORK
+  approvalEventsActed    PostApprovalEvent[]      @relation("EventActor") // FORK
+  approvalEventsTargeted PostApprovalEvent[]      @relation("EventTarget") // FORK
 
   @@unique([email, providerName])
   @@index([lastReadNotifications])
@@ -445,6 +456,7 @@ model Comments {
   user           User?        @relation(fields: [userId], references: [id])
   parent         Comments?    @relation("CommentReplies", fields: [parentId], references: [id])
   replies        Comments[]   @relation("CommentReplies")
+  approvalEvents PostApprovalEvent[] // FORK
 
   @@index([createdAt])
   @@index([organizationId])
@@ -1839,3 +1851,154 @@ model Announcement {
   color       AnnouncementColor @default(INFO)
   createdAt   DateTime          @default(now())
 }
+
+// ==== FORK: approvals ====
+enum WorkflowRole {
+  TECHNICAL_WRITER
+  CREATOR
+  REVIEWER
+  MONTHLY_REVIEWER
+}
+
+enum ActorRole {
+  TECHNICAL_WRITER
+  CREATOR
+  REVIEWER
+  MONTHLY_REVIEWER
+  MEMBER
+  SYSTEM
+}
+
+enum ApprovalStage {
+  IN_PRODUCTION
+  IN_REVIEW
+  AWAITING_FINAL
+  CHANGES_REQUESTED
+  APPROVED
+  PUBLISHED
+  VERIFIED
+  VERIFICATION_PROBLEM
+}
+
+enum ApprovalAction {
+  CREATED
+  LINKED_BRIEF
+  SUBMITTED
+  REVIEW_APPROVED
+  FINAL_APPROVED
+  REJECTED
+  CONTENT_EDITED
+  RESET_BY_EDIT
+  DATE_CHANGED
+  EXPIRED
+  FORCED
+  PUBLISHED
+  VERIFIED
+  VERIFICATION_PROBLEM
+  BLOCKED
+  BLOCKED_AT_PUBLISH
+  RECONCILED
+  CHANNEL_DISCARDED
+  ROLE_ASSIGNED
+  ROLE_REMOVED
+}
+
+enum BriefStatus {
+  OPEN
+  IN_PRODUCTION
+  DONE
+  CANCELLED
+}
+
+model WorkflowRoleAssignment {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation("WorkflowRoleUser", fields: [userId], references: [id], onDelete: Cascade)
+  role           WorkflowRole
+  createdById    String
+  createdBy      User         @relation("WorkflowRoleCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, userId, role])
+  @@index([organizationId, role])
+}
+
+model ContentBrief {
+  id                     String         @id @default(uuid())
+  organizationId         String
+  organization           Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  topic                  String
+  baseCopy               String?
+  targetDate             DateTime?
+  assignedCreatorId      String?
+  assignedCreator        User?          @relation("BriefAssignedCreator", fields: [assignedCreatorId], references: [id], onDelete: SetNull)
+  status                 BriefStatus    @default(OPEN)
+  quickBrief             Boolean        @default(false)
+  correctionOfApprovalId String?
+  correctionOf           PostApproval?  @relation("BriefCorrectionOf", fields: [correctionOfApprovalId], references: [id], onDelete: SetNull)
+  approvals              PostApproval[] @relation("ApprovalBrief")
+  createdById            String
+  createdBy              User           @relation("BriefCreatedBy", fields: [createdById], references: [id])
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  deletedAt              DateTime?
+
+  @@index([organizationId, status])
+}
+
+model PostApproval {
+  id                   String              @id @default(uuid())
+  organizationId       String
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  batchId              String              @unique
+  briefId              String?
+  brief                ContentBrief?       @relation("ApprovalBrief", fields: [briefId], references: [id], onDelete: SetNull)
+  stage                ApprovalStage       @default(IN_PRODUCTION)
+  version              Int                 @default(0)
+  approvedFingerprints Json?
+  earliestPublishDate  DateTime
+  forced               Boolean             @default(false)
+  warned48At           DateTime?
+  warned24At           DateTime?
+  warnedExpiredAt      DateTime?
+  verifyDueAt          DateTime?
+  warnedVerifyAt       DateTime?
+  verifiedAt           DateTime?
+  verifiedById         String?
+  verifiedBy           User?               @relation("ApprovalVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+  corrections          ContentBrief[]      @relation("BriefCorrectionOf")
+  events               PostApprovalEvent[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([organizationId, stage, earliestPublishDate])
+  @@index([verifyDueAt])
+}
+
+model PostApprovalEvent {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  approvalId     String?
+  approval       PostApproval?  @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  actorUserId    String?
+  actor          User?          @relation("EventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorRole      ActorRole
+  action         ApprovalAction
+  surface        CreationMethod @default(UNKNOWN)
+  fingerprints   Json?
+  snapshot       Json?
+  commentId      String?
+  comment        Comments?      @relation(fields: [commentId], references: [id], onDelete: SetNull)
+  reason         String?
+  targetUserId   String?
+  targetUser     User?          @relation("EventTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  targetRole     WorkflowRole?
+  createdAt      DateTime       @default(now())
+
+  @@index([approvalId, createdAt])
+  @@index([organizationId, action, createdAt])
+}
+// ==== END FORK ====
