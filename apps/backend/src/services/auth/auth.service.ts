@@ -50,7 +50,10 @@ export class AuthService {
           throw new Error('Email already exists');
         }
 
-        if (!(await this.canRegister(provider))) {
+        // FORK: approvals - with DISABLE_REGISTRATION, a valid invitation
+        // from an admin of an organization (the org cookie) still signs up
+        const invited = !!addToOrg && typeof addToOrg !== 'boolean';
+        if (!invited && !(await this.canRegister(provider))) {
           throw new Error('Registration is disabled');
         }
 

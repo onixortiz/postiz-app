@@ -37,6 +37,8 @@ interface VariableContextInterface {
   recaptchaSiteKey?: string;
   // FORK: approvals
   approvalsEnabled?: boolean;
+  // FORK: approvals - DISABLE_REGISTRATION: email and password only, sign up by invitation
+  inviteOnly?: boolean;
 }
 const VariableContext = createContext({
   stripeClient: '',
@@ -73,6 +75,7 @@ const VariableContext = createContext({
   recaptchaSiteKey: '',
   // FORK: approvals
   approvalsEnabled: false,
+  inviteOnly: false,
 } as VariableContextInterface);
 export const VariableContextComponent: FC<
   VariableContextInterface & {

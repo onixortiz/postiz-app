@@ -83,6 +83,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           recaptchaSiteKey={process.env.RECAPTCHA_SITE_KEY || ''}
           // FORK: approvals
           approvalsEnabled={process.env.APPROVALS_ENABLED === 'true'}
+          inviteOnly={process.env.DISABLE_REGISTRATION === 'true'}
           mediaProcessing={
             process.env.STORAGE_PROVIDER === 'cloudflare' &&
             !!process.env.RUNPOD_API_KEY &&
