@@ -50,6 +50,14 @@ import { ErrorsRepository } from '@gitroom/nestjs-libraries/database/prisma/erro
 import { ErrorsService } from '@gitroom/nestjs-libraries/database/prisma/errors/errors.service';
 import { AdminStatsRepository } from '@gitroom/nestjs-libraries/database/prisma/admin-stats/admin-stats.repository';
 import { AdminStatsService } from '@gitroom/nestjs-libraries/database/prisma/admin-stats/admin-stats.service';
+// FORK: approvals
+import { ApprovalsRepository } from '@gitroom/nestjs-libraries/database/prisma/approvals/approvals.repository';
+import { ApprovalNotifyService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.notify.service';
+import { ApprovalPolicyService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.policy.service';
+import { ApprovalGateService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.gate.service';
+import { ApprovalService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.service';
+import { BriefsService } from '@gitroom/nestjs-libraries/database/prisma/approvals/briefs.service';
+import { ApprovalSweepService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.sweep.service';
 
 @Global()
 @Module({
@@ -109,6 +117,14 @@ import { AdminStatsService } from '@gitroom/nestjs-libraries/database/prisma/adm
     ErrorsService,
     AdminStatsRepository,
     AdminStatsService,
+    // FORK: approvals
+    ApprovalsRepository,
+    ApprovalNotifyService,
+    ApprovalPolicyService,
+    ApprovalGateService,
+    ApprovalService,
+    BriefsService,
+    ApprovalSweepService,
   ],
   get exports() {
     return this.providers;

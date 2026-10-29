@@ -6,8 +6,9 @@ import { isGeneralServerSide } from '@gitroom/helpers/utils/is.general.server.si
 import Link from 'next/link';
 import { getT } from '@gitroom/react/translation/get.translation.service.backend';
 import { LoginWithOidc } from '@gitroom/frontend/components/auth/login.with.oidc';
+import { cookies } from 'next/headers';
 export const metadata: Metadata = {
-  title: `${isGeneralServerSide() ? 'Postiz' : 'Gitroom'} Register`,
+  title: `${isGeneralServerSide() ? 'Alpine Socials' : 'Gitroom'} Register`,
   description: '',
 };
 export default async function Auth(params: {searchParams: Promise<{provider: string}>}) {
@@ -16,7 +17,10 @@ export default async function Auth(params: {searchParams: Promise<{provider: str
     const canRegister = (
       await (await internalFetch('/auth/can-register')).json()
     ).register;
-    if (!canRegister && !(await params?.searchParams)?.provider) {
+    // FORK: approvals - an admin's invitation (the org cookie) still signs
+    // up; the backend checks that it is valid
+    const invited = !!(await cookies()).get('org')?.value;
+    if (!canRegister && !invited && !(await params?.searchParams)?.provider) {
       return (
         <>
           <LoginWithOidc />

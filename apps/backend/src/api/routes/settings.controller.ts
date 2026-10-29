@@ -17,6 +17,8 @@ import { AdminAddTeamMemberDto } from '@gitroom/nestjs-libraries/dtos/settings/a
 import { ShortlinkPreferenceDto } from '@gitroom/nestjs-libraries/dtos/settings/shortlink-preference.dto';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthorizationActions, Sections } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
+// FORK: approvals
+import { assertOrgAdminWhenInviteOnly } from '@gitroom/backend/services/auth/approvals.guard';
 
 @ApiTags('Settings')
 @Controller('/settings')
@@ -44,6 +46,8 @@ export class SettingsController {
     @GetUserFromRequest() user: User,
     @Body() body: AddTeamMemberDto
   ) {
+    // FORK: approvals
+    assertOrgAdminWhenInviteOnly(org as any);
     return this._organizationService.inviteTeamMember(org, user, body);
   }
 
@@ -69,6 +73,8 @@ export class SettingsController {
     @GetOrgFromRequest() org: Organization,
     @Param('id') id: string
   ) {
+    // FORK: approvals
+    assertOrgAdminWhenInviteOnly(org as any);
     return this._organizationService.deleteTeamMember(org, id);
   }
 

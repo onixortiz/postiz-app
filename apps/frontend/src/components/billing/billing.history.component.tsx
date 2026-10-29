@@ -236,7 +236,7 @@ export const BillingHistory: FC<{ modal?: boolean }> = ({ modal }) => {
                 setVisible(PAGE_SIZE);
               }}
               placeholder={t('billing_search', 'Search...')}
-              className="w-full h-[42px] ps-[38px] pe-[12px] rounded-[8px] bg-newBgColorInner border border-newTableBorder text-[14px] outline-none focus:border-[#612BD3]"
+              className="w-full h-[42px] ps-[38px] pe-[12px] rounded-[8px] bg-newBgColorInner border border-newTableBorder text-[14px] outline-none focus:border-[#001489]"
             />
           </div>
           <div className="mobile:flex-1">
@@ -305,7 +305,7 @@ export const BillingHistory: FC<{ modal?: boolean }> = ({ modal }) => {
 
         {!filtered.length ? (
           <div className="flex flex-col items-center justify-center gap-[12px] py-[40px] px-[16px] text-center">
-            <div className="w-[48px] h-[48px] rounded-full bg-[#612bd3]/10 flex items-center justify-center text-[#612bd3]">
+            <div className="w-[48px] h-[48px] rounded-full bg-[#001489]/10 flex items-center justify-center text-[#001489]">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="24"

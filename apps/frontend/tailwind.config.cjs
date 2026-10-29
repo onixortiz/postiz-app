@@ -99,6 +99,13 @@ module.exports = {
         menuDots: 'var(--new-menu-dots)',
         menuDotsHover: 'var(--new-menu-hover)',
         bigStrip: 'var(--new-big-strips)',
+        // FORK: approvals
+        approvalReview: 'var(--approval-review)',
+        approvalFinal: 'var(--approval-final)',
+        approvalChanges: 'var(--approval-changes)',
+        approvalPublished: 'var(--approval-published)',
+        approvalVerified: 'var(--approval-verified)',
+        approvalProblem: 'var(--approval-problem)',
         popup: 'var(--popup-color)',
         bgLinkedin: 'var(--linkedin-bg)',
         bgFacebook: 'var(--facebook-bg)',

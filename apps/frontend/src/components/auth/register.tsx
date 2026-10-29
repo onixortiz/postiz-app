@@ -98,6 +98,7 @@ export function RegisterAfter({
     neynarClientId,
     appleClientId,
     billingEnabled,
+    inviteOnly,
   } = useVariables();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -107,6 +108,8 @@ export function RegisterAfter({
   const isAfterProvider = useMemo(() => {
     return !!token && !!provider;
   }, [token, provider]);
+  // FORK: approvals - with inviteOnly, an invited member signs up with email and password only
+  const showProviders = !isAfterProvider && !inviteOnly;
   const resolver = useMemo(() => {
     return classValidatorResolver(CreateOrgUserDto);
   }, []);
@@ -162,11 +165,15 @@ export function RegisterAfter({
               {t('sign_up', 'Sign Up')}
             </h1>
           </div>
-          <div className="text-[14px] mt-[32px] mb-[12px]">
-            {t('continue_with', 'Continue With')}
-          </div>
+          {!inviteOnly ? (
+            <div className="text-[14px] mt-[32px] mb-[12px]">
+              {t('continue_with', 'Continue With')}
+            </div>
+          ) : (
+            <div className="mt-[32px]" />
+          )}
           <div className="flex flex-col text-[14px]">
-            {!isAfterProvider &&
+            {showProviders &&
               (!isGeneral ? (
                 <GithubProvider />
               ) : (
@@ -181,7 +188,7 @@ export function RegisterAfter({
                   {billingEnabled && <WalletProvider />}
                 </div>
               ))}
-            {!isAfterProvider && (
+            {showProviders && (
               <div className="h-[20px] mb-[24px] mt-[24px] relative">
                 <div className="absolute w-full h-[1px] bg-fifth top-[50%] -translate-y-[50%]" />
                 <div

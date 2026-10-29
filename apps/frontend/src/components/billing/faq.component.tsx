@@ -28,14 +28,14 @@ const useFaqList = () => {
     {
       title: t(
         'faq_can_i_trust_postiz_gitroom',
-        `Can I trust ${isGeneral ? 'Postiz' : 'Gitroom'}?`
+        `Can I trust ${isGeneral ? 'Alpine Socials' : 'Gitroom'}?`
       ),
       description: t(
         'faq_postiz_gitroom_is_proudly_open_source',
         `${
-          isGeneral ? 'Postiz' : 'Gitroom'
+          isGeneral ? 'Alpine Socials' : 'Gitroom'
         } is proudly open-source! We believe in an ethical and transparent culture, meaning that ${
-          isGeneral ? 'Postiz' : 'Gitroom'
+          isGeneral ? 'Alpine Socials' : 'Gitroom'
         } will live forever. You can check out the entire code or use it for personal projects. To view the open-source repository, <a href="https://github.com/gitroomhq/postiz-app" target="_blank" style="text-decoration: underline;">click here</a>.`
       ),
     },
@@ -44,7 +44,7 @@ const useFaqList = () => {
       description: t(
         'faq_postiz_gitroom_allows_you_to_schedule_posts',
         `${
-          isGeneral ? 'Postiz' : 'Gitroom'
+          isGeneral ? 'Alpine Socials' : 'Gitroom'
         } allows you to schedule your posts between different channels.
 A channel is a publishing platform where you can schedule your posts.
 For example, you can schedule your posts on X, Facebook, Instagram, TikTok, YouTube, Reddit, Linkedin, Dribbble, Threads and Pinterest.`
@@ -67,7 +67,7 @@ For example, you can schedule your posts on X, Facebook, Instagram, TikTok, YouT
             description: t(
               'faq_delete_account_description',
               `If you don't want to continue using ${
-                isGeneral ? 'Postiz' : 'Gitroom'
+                isGeneral ? 'Alpine Socials' : 'Gitroom'
               }, you can delete your account, including all your organizations, channels and posts. This action cannot be undone.`
             ),
             content: <DeleteAccountComponent isLink={true} />,

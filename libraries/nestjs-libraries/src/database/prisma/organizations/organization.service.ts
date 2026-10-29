@@ -34,6 +34,11 @@ export class OrganizationService {
     return this._organizationRepository.getCount();
   }
 
+  // FORK: approvals
+  getFirstOrgId() {
+    return this._organizationRepository.getFirstOrgId();
+  }
+
   async createMaxUser(id: string, name: string, saasName: string, email: string) {
     return this._organizationRepository.createMaxUser(id, name, saasName, email);
   }

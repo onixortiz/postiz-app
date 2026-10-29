@@ -16,7 +16,7 @@ export const AddPostButton: FC<{
     <div className="flex">
       <div
         onClick={onClick}
-        className="select-none cursor-pointer h-[34px] rounded-[6px] flex bg-[#D82D7E] gap-[8px] justify-center items-center pl-[16px] pr-[20px] text-[13px] font-[600] mt-[12px] mobile:w-[40px] mobile:h-[40px] mobile:p-0 mobile:mt-0 mobile:rounded-[8px]"
+        className="select-none cursor-pointer h-[34px] rounded-[6px] flex bg-[#FF6C2F] gap-[8px] justify-center items-center pl-[16px] pr-[20px] text-[13px] font-[600] mt-[12px] mobile:w-[40px] mobile:h-[40px] mobile:p-0 mobile:mt-0 mobile:rounded-[8px]"
       >
         <div>
           <svg

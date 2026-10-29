@@ -144,7 +144,7 @@ export const OAuthSelfHosted: FC<{
           disabled={
             submitting || !instanceUrl.trim() || (askEmail && !email.trim())
           }
-          className="flex-1 bg-[#612BD3] hover:bg-[#7B3FF2] disabled:opacity-50 text-white rounded-[8px] py-[10px] px-[16px] text-[14px] font-semibold transition-colors"
+          className="flex-1 bg-[#001489] hover:bg-[#7B3FF2] disabled:opacity-50 text-white rounded-[8px] py-[10px] px-[16px] text-[14px] font-semibold transition-colors"
         >
           {submitting ? 'Connecting...' : 'Connect'}
         </button>

@@ -1,6 +1,7 @@
 services:
   postiz:
-    image: ghcr.io/gitroomhq/postiz-app:latest
+    # FORK: approvals - the fork's own image (see docs/fork/runbook.md)
+    image: ${FORK_IMAGE:?set FORK_IMAGE to the fork image, see docs/fork/runbook.md}
     container_name: postiz
     restart: always
     environment:
@@ -15,6 +16,12 @@ services:
       TEMPORAL_ADDRESS: 'temporal:7233'
       IS_GENERAL: 'true'
       DISABLE_REGISTRATION: 'false'
+
+      # === FORK: approval workflow
+      # backend and orchestrator both read it (pm2 runs them in this container)
+      APPROVALS_ENABLED: 'true'
+      # starts the 15 minute approval sweep and the reconciliation at start
+      RUN_CRON: 'true'
 
       # === Storage Settings
       STORAGE_PROVIDER: 'local'
@@ -193,7 +200,8 @@ services:
     expose:
       - 9200
     volumes:
-      - /var/lib/elasticsearch/data
+      # FORK: named, so recreating the containers keeps the scheduled workflows
+      - temporal-es-data:/var/lib/elasticsearch/data
 
   temporal-postgresql:
     container_name: temporal-postgresql
@@ -206,12 +214,14 @@ services:
     expose:
       - 5432
     volumes:
-      - /var/lib/postgresql/data
+      # FORK: named, so recreating the containers keeps the scheduled workflows
+      - temporal-postgres-data:/var/lib/postgresql/data
 
   temporal:
     container_name: temporal
     ports:
-      - '7233:7233'
+      # FORK: only from the host, gRPC has no authentication
+      - '127.0.0.1:7233:7233'
     image: temporalio/auto-setup:1.28.1
     depends_on:
       - temporal-postgresql
@@ -256,7 +266,8 @@ services:
     networks:
       - temporal-network
     ports:
-      - '8080:8080'
+      # FORK: only from the host
+      - '127.0.0.1:8080:8080'
 
 volumes:
   postgres-volume:
@@ -269,6 +280,13 @@ volumes:
     external: false
 
   postiz-uploads:
+    external: false
+
+  # FORK: Temporal data
+  temporal-postgres-data:
+    external: false
+
+  temporal-es-data:
     external: false
 
 networks:

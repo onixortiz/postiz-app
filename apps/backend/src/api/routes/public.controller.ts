@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  NotFoundException,
   Param,
   Post,
   Query,
@@ -27,6 +28,8 @@ import { OnlyURL } from '@gitroom/nestjs-libraries/dtos/webhooks/webhooks.dto';
 import { isSafePublicHttpsUrl } from '@gitroom/nestjs-libraries/dtos/webhooks/webhook.url.validator';
 import { ssrfSafeDispatcher } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
 import { CreatePublicCommentDto } from '@gitroom/nestjs-libraries/dtos/comments/add.comment.dto';
+// FORK: approvals
+import { ApprovalGateService } from '@gitroom/nestjs-libraries/database/prisma/approvals/approval.gate.service';
 
 const pump = promisify(pipeline);
 
@@ -37,7 +40,9 @@ export class PublicController {
     private _trackService: TrackService,
     private _agentGraphInsertService: AgentGraphInsertService,
     private _postsService: PostsService,
-    private _subscriptionService: SubscriptionService
+    private _subscriptionService: SubscriptionService,
+    // FORK: approvals
+    private _approvalGate: ApprovalGateService
   ) {}
   @Post('/agent')
   async createAgent(@Body() body: { text: string; apiKey: string }) {
@@ -53,6 +58,8 @@ export class PublicController {
 
   @Get(`/posts/:id`)
   async getPreview(@Param('id') id: string) {
+    // FORK: approvals - the preview is behind the login, see /approvals/preview
+    this.assertPreviewIsPublic();
     // the batch only links the posts in the dashboard, it stays out of the
     // public preview
     return (await this._postsService.getPostsRecursively(id, true)).map(
@@ -75,6 +82,8 @@ export class PublicController {
 
   @Get(`/posts/:id/comments`)
   async getComments(@Param('id') postId: string) {
+    // FORK: approvals
+    this.assertPreviewIsPublic();
     return { comments: await this._postsService.getComments(postId) };
   }
 
@@ -84,7 +93,16 @@ export class PublicController {
     @Body() body: CreatePublicCommentDto,
     @RealIP() ip: string
   ) {
+    // FORK: approvals
+    this.assertPreviewIsPublic();
     return this._postsService.createPublicComment(postId, body, null, ip);
+  }
+
+  // FORK: approvals
+  private assertPreviewIsPublic() {
+    if (this._approvalGate.enabled()) {
+      throw new NotFoundException();
+    }
   }
 
   @Post('/t')

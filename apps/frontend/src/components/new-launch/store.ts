@@ -138,6 +138,9 @@ interface StoreState {
   setChars: (id: string, chars: number) => void;
   chars: Record<string, number>;
   setComments: (comments: boolean | 'no-media') => void;
+  // FORK: approvals - the topic the post is created from, linked on save
+  briefId?: string;
+  setBriefId: (briefId?: string) => void;
 }
 
 const initialState = {
@@ -162,6 +165,8 @@ const initialState = {
   global: [] as Values[],
   internal: [] as Internal[],
   chars: {},
+  // FORK: approvals
+  briefId: undefined as string | undefined,
 };
 
 export const useLaunchStore = create<StoreState>()((set) => ({
@@ -532,6 +537,11 @@ export const useLaunchStore = create<StoreState>()((set) => ({
   setLocked: (locked: boolean) =>
     set((state) => ({
       locked: locked,
+    })),
+  // FORK: approvals
+  setBriefId: (briefId?: string) =>
+    set((state) => ({
+      briefId,
     })),
   setHide: (hide: boolean) =>
     set((state) => ({

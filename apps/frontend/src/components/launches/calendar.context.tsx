@@ -9,6 +9,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import dayjs from 'dayjs';
@@ -26,6 +27,13 @@ import {
 } from '@gitroom/frontend/components/layout/set.timezone';
 import { timer } from '@gitroom/helpers/utils/timer';
 import { expandPostsList, expandPosts } from '@gitroom/helpers/utils/posts.list.minify';
+// FORK: approvals
+import {
+  ApprovalStage,
+  useApprovalStages,
+} from '@gitroom/frontend/components/approvals/use.approvals';
+import type { StagesMap } from '@gitroom/nestjs-libraries/dtos/approvals/approval.actions.dto';
+import { useVariables } from '@gitroom/react/helpers/variable.context';
 extend(isoWeek);
 extend(weekOfYear);
 
@@ -66,9 +74,14 @@ export const CalendarContext = createContext({
     endDate: string;
     display: 'week' | 'month' | 'day' | 'list';
     customer: string | null;
+    // FORK: approvals
+    approvalStage?: ApprovalStage | null;
   }) => {
     /** empty **/
   },
+  // FORK: approvals
+  approvalStage: null as ApprovalStage | null,
+  stagesByPostId: {} as StagesMap,
   changeDate: (id: string, date: dayjs.Dayjs) => {
     /** empty **/
   },
@@ -196,6 +209,15 @@ export const CalendarWeekProvider: FC<{
   const initStartDate = searchParams.get('startDate');
   const initEndDate = searchParams.get('endDate');
   const initCustomer = searchParams.get('customer');
+  // FORK: approvals
+  const { approvalsEnabled } = useVariables();
+  const [approvalStage, setApprovalStage] = useState<ApprovalStage | null>(
+    approvalsEnabled
+      ? (searchParams.get('approvalStage') as ApprovalStage) || null
+      : null
+  );
+  // the calls that don't send a stage keep the current one
+  const approvalStageRef = useRef(approvalStage);
 
   const initialRange =
     initStartDate && initEndDate
@@ -322,9 +344,16 @@ export const CalendarWeekProvider: FC<{
       endDate: string;
       display: 'week' | 'month' | 'day' | 'list';
       customer: string | null;
+      // FORK: approvals
+      approvalStage?: ApprovalStage | null;
     }) => {
+      const { approvalStage: sent, ...rest } = newFilters;
+      // FORK: approvals
+      const stage = sent === undefined ? approvalStageRef.current : sent;
+      approvalStageRef.current = stage;
+      setApprovalStage(stage);
       setDisplaySaved(newFilters.display);
-      setFilters(newFilters);
+      setFilters(rest);
       setInternalData([]);
 
       // Reset page when switching to list view
@@ -337,25 +366,45 @@ export const CalendarWeekProvider: FC<{
         `endDate=${newFilters.endDate}`,
         `display=${newFilters.display}`,
         newFilters.customer ? `customer=${newFilters.customer}` : ``,
+        // FORK: approvals
+        stage ? `approvalStage=${stage}` : ``,
       ].filter((f) => f);
       window.history.replaceState(null, '', `/launches?${path.join('&')}`);
     },
     []
   );
 
-  const filterByChannels = useCallback(
-    (list: any[]) =>
-      selectedChannels
-        ? list.filter((p) => selectedChannels.includes(p.integration.id))
-        : list,
-    [selectedChannels]
-  );
-
   const posts = useMemo(() => calendarData?.posts || [], [calendarData?.posts]);
   const comments = useMemo(() => calendarData?.comments || [], [calendarData?.comments]);
 
+  // FORK: approvals - one request for the stages of every visible post
+  const { data: stagesByPostId, mutate: mutateStages } = useApprovalStages([
+    ...posts.map((p: Post) => p.id),
+    ...(listData?.posts || []).map((p: Post) => p.id),
+  ]);
+
+  const filterByChannels = useCallback(
+    (list: any[]) =>
+      (selectedChannels
+        ? list.filter((p) => selectedChannels.includes(p.integration.id))
+        : list
+      ).filter(
+        // FORK: approvals
+        (p) => !approvalStage || stagesByPostId?.[p.id]?.stage === approvalStage
+      ),
+    [selectedChannels, approvalStage, stagesByPostId]
+  );
+
   // List view data
-  const listPosts = useMemo(() => listData?.posts || [], [listData?.posts]);
+  const listPosts = useMemo(
+    () =>
+      // FORK: approvals
+      (listData?.posts || []).filter(
+        (p: Post) =>
+          !approvalStage || stagesByPostId?.[p.id]?.stage === approvalStage
+      ),
+    [listData?.posts, approvalStage, stagesByPostId]
+  );
   const listTotal = listData?.total || 0;
   const listTotalPages = Math.ceil(listTotal / 100);
 
@@ -386,7 +435,9 @@ export const CalendarWeekProvider: FC<{
   const reloadCalendarView = useCallback(() => {
     mutateCalendar();
     mutateList();
-  }, [mutateCalendar, mutateList]);
+    // FORK: approvals - a save keeps the post ids, so the stages key stays
+    mutateStages();
+  }, [mutateCalendar, mutateList, mutateStages]);
 
   // Determine loading state based on current view
   const loading = filters.display === 'list' ? listIsLoading : calendarIsLoading;
@@ -415,6 +466,9 @@ export const CalendarWeekProvider: FC<{
         loading,
         integrations,
         setFilters: setFiltersWrapper,
+        // FORK: approvals
+        approvalStage,
+        stagesByPostId: stagesByPostId || {},
         changeDate,
         comments,
         sets: sets || [],

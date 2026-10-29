@@ -1,0 +1,189 @@
+# FORK: deployment on one Oracle Cloud "Always Free" VM (Ubuntu, ARM).
+# Nothing here is published on the public interface: Tailscale Funnel (the
+# tailscale service) carries the traffic from the .ts.net address to nginx in
+# the postiz container. See deploy/oracle/README.md.
+#
+# The values come from deploy/oracle/.env, written by setup.sh.
+
+# fixed, so the volume names (alpine-socials_*) don't depend on the folder
+name: alpine-socials
+
+services:
+  postiz:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.dev
+    image: alpine-socials:local
+    container_name: postiz
+    restart: always
+    environment:
+      MAIN_URL: 'https://${APP_DOMAIN:?set APP_DOMAIN in .env}'
+      FRONTEND_URL: 'https://${APP_DOMAIN}'
+      NEXT_PUBLIC_BACKEND_URL: 'https://${APP_DOMAIN}/api'
+      BACKEND_INTERNAL_URL: 'http://localhost:3000'
+      JWT_SECRET: '${JWT_SECRET:?set JWT_SECRET in .env}'
+      DATABASE_URL: 'postgresql://postiz:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postiz-postgres:5432/postiz'
+      REDIS_URL: 'redis://postiz-redis:6379'
+      TEMPORAL_ADDRESS: 'temporal:7233'
+      IS_GENERAL: 'true'
+      DISABLE_REGISTRATION: '${DISABLE_REGISTRATION:-false}'
+      APPROVALS_ENABLED: 'true'
+      RUN_CRON: 'true'
+      STORAGE_PROVIDER: 'local'
+      UPLOAD_DIRECTORY: '/uploads'
+      NEXT_PUBLIC_UPLOAD_DIRECTORY: '/uploads'
+      FACEBOOK_APP_ID: '${FACEBOOK_APP_ID:-}'
+      FACEBOOK_APP_SECRET: '${FACEBOOK_APP_SECRET:-}'
+      INSTAGRAM_APP_ID: '${INSTAGRAM_APP_ID:-}'
+      INSTAGRAM_APP_SECRET: '${INSTAGRAM_APP_SECRET:-}'
+      LINKEDIN_CLIENT_ID: '${LINKEDIN_CLIENT_ID:-}'
+      LINKEDIN_CLIENT_SECRET: '${LINKEDIN_CLIENT_SECRET:-}'
+      RESEND_API_KEY: '${RESEND_API_KEY:-}'
+      EMAIL_FROM_ADDRESS: '${EMAIL_FROM_ADDRESS:-}'
+      EMAIL_FROM_NAME: '${EMAIL_FROM_NAME:-Alpine Socials}'
+      API_LIMIT: 30
+      NX_ADD_PLUGINS: 'false'
+    volumes:
+      - postiz-config:/config/
+      - postiz-uploads:/uploads/
+    networks:
+      - postiz-network
+      - temporal-network
+    depends_on:
+      postiz-postgres:
+        condition: service_healthy
+      postiz-redis:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+
+  # Tailscale Funnel: https://<TS_HOSTNAME>.<tailnet>.ts.net to nginx in the
+  # postiz container (serve.json). The node connects out, no port is opened.
+  tailscale:
+    image: tailscale/tailscale:stable
+    container_name: tailscale
+    hostname: '${TS_HOSTNAME:-alpine}'
+    restart: always
+    environment:
+      TS_AUTHKEY: '${TS_AUTHKEY:-}'
+      TS_HOSTNAME: '${TS_HOSTNAME:-alpine}'
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_USERSPACE: 'true'
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - ./serve.json:/config/serve.json:ro
+    networks:
+      - postiz-network
+    depends_on:
+      - postiz
+
+  postiz-postgres:
+    image: postgres:17-alpine
+    container_name: postiz-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postiz
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD}'
+      POSTGRES_DB: postiz
+    volumes:
+      - postgres-volume:/var/lib/postgresql/data
+    networks:
+      - postiz-network
+    healthcheck:
+      test: pg_isready -U postiz -d postiz
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  postiz-redis:
+    image: redis:7.2
+    container_name: postiz-redis
+    restart: always
+    healthcheck:
+      test: redis-cli ping
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    volumes:
+      - postiz-redis-data:/data
+    networks:
+      - postiz-network
+
+  temporal-elasticsearch:
+    image: elasticsearch:7.17.27
+    container_name: temporal-elasticsearch
+    restart: always
+    environment:
+      - cluster.routing.allocation.disk.threshold_enabled=true
+      - cluster.routing.allocation.disk.watermark.low=512mb
+      - cluster.routing.allocation.disk.watermark.high=256mb
+      - cluster.routing.allocation.disk.watermark.flood_stage=128mb
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    networks:
+      - temporal-network
+    volumes:
+      - temporal-es-data:/usr/share/elasticsearch/data
+
+  temporal-postgresql:
+    image: postgres:16
+    container_name: temporal-postgresql
+    restart: always
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: '${TEMPORAL_DB_PASSWORD:?set TEMPORAL_DB_PASSWORD in .env}'
+    networks:
+      - temporal-network
+    volumes:
+      - temporal-postgres-data:/var/lib/postgresql/data
+
+  temporal:
+    image: temporalio/auto-setup:1.28.1
+    container_name: temporal
+    restart: always
+    depends_on:
+      - temporal-postgresql
+      - temporal-elasticsearch
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=${TEMPORAL_DB_PASSWORD}
+      - POSTGRES_SEEDS=temporal-postgresql
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+      - ENABLE_ES=true
+      - ES_SEEDS=temporal-elasticsearch
+      - ES_VERSION=v7
+      - TEMPORAL_NAMESPACE=default
+    networks:
+      - temporal-network
+    volumes:
+      - ../../dynamicconfig:/etc/temporal/config/dynamicconfig
+
+  # only from the VM itself: ssh -L 8080:127.0.0.1:8080 ubuntu@<ip>
+  temporal-ui:
+    image: temporalio/ui:2.34.0
+    container_name: temporal-ui
+    restart: always
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+    networks:
+      - temporal-network
+    ports:
+      - '127.0.0.1:8080:8080'
+
+volumes:
+  postgres-volume:
+  postiz-redis-data:
+  postiz-config:
+  postiz-uploads:
+  temporal-postgres-data:
+  temporal-es-data:
+  tailscale-state:
+
+networks:
+  postiz-network:
+  temporal-network:
+    name: temporal-network
