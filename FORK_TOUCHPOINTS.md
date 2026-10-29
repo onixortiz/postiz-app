@@ -45,6 +45,7 @@ behaves as upstream, except the rows marked **always**.
 | `apps/frontend/src/app/colors.scss`, `apps/frontend/tailwind.config.cjs` | `--approval-*` tokens | Stage badge colors | — |
 | `libraries/react-shared-libraries/src/translation/locales/en/translation.json`, `.../es/translation.json` | Keys `approvals_*` | Texts of the fork | — |
 | `package.json` | `test:fork`, `lint:fork` | Fork checks | — |
+| `libraries/helpers/src/subdomain/subdomain.management.ts` | `getCookieUrlFromDomain` reads `COOKIE_DOMAIN` | On a shared host (`*.up.railway.app`) the cookies would go to every app on `railway.app` | **always**, but only with `COOKIE_DOMAIN` set. Every cookie `domain:` still comes from this function |
 | `docker-compose.yaml` | `FORK_IMAGE`, `APPROVALS_ENABLED`, `RUN_CRON`, named Temporal volumes, ports on `127.0.0.1` | Deployment | Keep 7233 and 8080 off the public interface |
 | `var/docker/docker-build.sh` | Build and push of `FORK_IMAGE` | Deployment | — |
 | `.env.example` | Fork variables | Deployment | — |
